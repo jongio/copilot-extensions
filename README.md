@@ -25,7 +25,7 @@ That's it — no clone, no CLI flags, no build step.
 | --- | --- | --- |
 | [`stock-ticker`](extensions/stock-ticker) | Canvas | A personalized live stock watchlist — shared between you and the agent, with live quotes and sparklines. |
 | [`random-animal`](extensions/random-animal) | Canvas | Roll the dice to discover a random animal and a fun fact — with bounce-in animations, floating emojis, and roll history. |
-| [`lingo-quest`](extensions/lingo-quest) | Canvas | Pick a language and a gamified course appears — flashcards, quizzes, XP, levels, streaks, hearts, gems, mascots and confetti. You and the agent share one learner profile. |
+| [`language-tutor`](extensions/language-tutor) | Canvas | Pick a language and a gamified course appears — flashcards, quizzes, XP, levels, streaks, hearts, gems, mascots and confetti. You and the agent share one learner profile. |
 
 Each lives in its own folder under [`extensions/`](extensions) and is fully self-contained
 (its `extension.mjs` plus whatever it needs — for a canvas that's `canvas-kit/` + `web/` +
@@ -56,7 +56,7 @@ copilot-extensions/
 ├─ extensions/                 # the extensions, one self-contained folder each
 │  ├─ stock-ticker/
 │  ├─ random-animal/
-│  └─ lingo-quest/
+│  └─ language-tutor/
 ├─ scripts/
 │  └─ validate-extensions.mjs  # structure check (run in CI)
 └─ .github/workflows/

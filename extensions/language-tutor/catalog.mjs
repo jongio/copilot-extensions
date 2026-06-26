@@ -1,4 +1,4 @@
-// catalog.mjs — LingoQuest course catalog (SDK-free data).
+// catalog.mjs — Language Tutor course catalog (SDK-free data).
 //
 // Curated mini-courses for popular languages, each with a mascot, flag, accent
 // color and a Duolingo-style unit → lesson → flashcard structure. pick_language

@@ -1,4 +1,4 @@
-// web/app.mjs — Preact view for the LingoQuest canvas.
+// web/app.mjs — Preact view for the Language Tutor canvas.
 //
 // SHARED state (profile + courses) arrives over /events (SSE); the agent mutates
 // the same data through the same handlers. LOCAL view state (which screen we're
@@ -84,10 +84,10 @@ function Hud({ profile, invoke, onAvatar, connected }) {
   }
 
   return html`
-    <div class="lq-hud">
-      <div class="lq-avatar" title="Change avatar" onClick=${onAvatar}>${p.avatar}</div>
-      <div class="lq-hud-main">
-        <div class="lq-hud-name">
+    <div class="lt-hud">
+      <div class="lt-avatar" title="Change avatar" onClick=${onAvatar}>${p.avatar}</div>
+      <div class="lt-hud-main">
+        <div class="lt-hud-name">
           ${editing
             ? html`<input class="ck-input" style="height:24px;padding:1px 6px;max-width:140px"
                 value=${draft} autofocus
@@ -96,20 +96,20 @@ function Hud({ profile, invoke, onAvatar, connected }) {
                 onBlur=${commit} />`
             : html`<span style="cursor:text" title="Click to rename"
                 onClick=${() => { setDraft(p.name); setEditing(true); }}>${p.name}</span>`}
-          <span class="lq-lvl">LV ${p.level}</span>
+          <span class="lt-lvl">LV ${p.level}</span>
         </div>
-        <div class="lq-xpbar"><div class="lq-xpfill" style=${`width:${xpInLevel}%`}></div></div>
-        <div class="lq-xpcap">${xpInLevel}/100 XP to level ${p.level + 1}</div>
+        <div class="lt-xpbar"><div class="lt-xpfill" style=${`width:${xpInLevel}%`}></div></div>
+        <div class="lt-xpcap">${xpInLevel}/100 XP to level ${p.level + 1}</div>
       </div>
-      <div class="lq-stats">
-        <div class="lq-stat"><b>🔥${p.streak}</b><span>streak</span></div>
-        <div class="lq-stat">
-          <span class="lq-hearts">${hearts}</span>
-          <button class="lq-refill" disabled=${p.hearts >= MAX_HEARTS || p.gems < 15}
+      <div class="lt-stats">
+        <div class="lt-stat"><b>🔥${p.streak}</b><span>streak</span></div>
+        <div class="lt-stat">
+          <span class="lt-hearts">${hearts}</span>
+          <button class="lt-refill" disabled=${p.hearts >= MAX_HEARTS || p.gems < 15}
             title="Refill hearts for 15 gems"
             onClick=${() => invoke("refill_hearts").catch(() => {})}>refill</button>
         </div>
-        <div class="lq-stat"><b>💎${p.gems}</b><span>gems</span></div>
+        <div class="lt-stat"><b>💎${p.gems}</b><span>gems</span></div>
       </div>
     </div>
   `;
@@ -117,9 +117,9 @@ function Hud({ profile, invoke, onAvatar, connected }) {
 
 function AvatarPicker({ invoke, onClose }) {
   return html`
-    <div class="lq-avatar-pop">
+    <div class="lt-avatar-pop">
       ${AVATARS.map(
-        (a) => html`<button class="lq-avatar-opt" key=${a}
+        (a) => html`<button class="lt-avatar-opt" key=${a}
           onClick=${async () => { await invoke("set_avatar", { avatar: a }); onClose(); }}>${a}</button>`
       )}
     </div>
@@ -151,25 +151,25 @@ function LanguagePicker({ invoke, onClose, hasCourses }) {
 
   return html`
     <div>
-      <div class="lq-hero">
+      <div class="lt-hero">
         <h1>🌍 Pick your language</h1>
-        <div class="lq-sub">Choose a guide and a course appears — instantly.</div>
+        <div class="lt-sub">Choose a guide and a course appears — instantly.</div>
       </div>
-      <div class="lq-pick-grid">
+      <div class="lt-pick-grid">
         ${CATALOG_CARDS.map(
           (c) => html`
-            <button class="lq-pick" key=${c.code} style=${`--lq-card-accent:${c.accent}`} disabled=${busy}
+            <button class="lt-pick" key=${c.code} style=${`--lt-card-accent:${c.accent}`} disabled=${busy}
               onClick=${() => pick(c.name)}>
-              <div class="lq-pick-mascot">${c.mascot}</div>
-              <div class="lq-pick-flag">${c.flag}</div>
-              <div class="lq-pick-name">${c.name}</div>
-              <div class="lq-pick-who">${c.who}</div>
-              <div class="lq-pick-blurb">${c.blurb}</div>
+              <div class="lt-pick-mascot">${c.mascot}</div>
+              <div class="lt-pick-flag">${c.flag}</div>
+              <div class="lt-pick-name">${c.name}</div>
+              <div class="lt-pick-who">${c.who}</div>
+              <div class="lt-pick-blurb">${c.blurb}</div>
             </button>
           `
         )}
       </div>
-      <div class="lq-custom-row">
+      <div class="lt-custom-row">
         <input class="ck-input" placeholder="…or type any language (Dutch, Hindi, Swahili)"
           value=${custom} disabled=${busy}
           onInput=${(e) => setCustom(e.target.value)}
@@ -180,7 +180,7 @@ function LanguagePicker({ invoke, onClose, hasCourses }) {
       </div>
       ${hasCourses
         ? html`<div style="margin-top:12px;text-align:center">
-            <button class="lq-back" onClick=${onClose}><${Icon} name="arrow-left" size=${14} />Back to my course</button>
+            <button class="lt-back" onClick=${onClose}><${Icon} name="arrow-left" size=${14} />Back to my course</button>
           </div>`
         : null}
     </div>
@@ -195,45 +195,45 @@ function CourseHome({ course, invoke, onOpenLesson, onChange }) {
 
   return html`
     <div>
-      <div class="lq-banner">
-        <div class="lq-banner-mascot">${course.mascot}</div>
-        <div class="lq-banner-info">
-          <div class="lq-banner-title">${course.flag} ${course.name}</div>
-          <div class="lq-banner-who">${course.mascot} ${course.mascotName}</div>
-          <div class="lq-banner-blurb">${course.blurb}</div>
-          <div class="lq-progress"><i style=${`width:${prog.pct}%`}></i></div>
-          <div class="lq-xpcap">${prog.done}/${prog.total} lessons complete</div>
+      <div class="lt-banner">
+        <div class="lt-banner-mascot">${course.mascot}</div>
+        <div class="lt-banner-info">
+          <div class="lt-banner-title">${course.flag} ${course.name}</div>
+          <div class="lt-banner-who">${course.mascot} ${course.mascotName}</div>
+          <div class="lt-banner-blurb">${course.blurb}</div>
+          <div class="lt-progress"><i style=${`width:${prog.pct}%`}></i></div>
+          <div class="lt-xpcap">${prog.done}/${prog.total} lessons complete</div>
         </div>
       </div>
 
       <div class="ck-spread" style="margin-bottom:10px">
-        <button class="lq-back" onClick=${onChange}><${Icon} name="globe" size=${14} />Change language</button>
+        <button class="lt-back" onClick=${onChange}><${Icon} name="globe" size=${14} />Change language</button>
       </div>
 
       ${course.units.length
         ? course.units.map(
             (u) => html`
-              <div class="lq-unit" key=${u.id}>
-                <div class="lq-unit-head">
-                  <span class="lq-u-emoji">${u.emoji}</span>
+              <div class="lt-unit" key=${u.id}>
+                <div class="lt-unit-head">
+                  <span class="lt-u-emoji">${u.emoji}</span>
                   <h3>${u.title}</h3>
-                  <span class="lq-u-count">${u.lessons.filter((l) => l.done).length}/${u.lessons.length}</span>
+                  <span class="lt-u-count">${u.lessons.filter((l) => l.done).length}/${u.lessons.length}</span>
                 </div>
-                <div class="lq-path">
+                <div class="lt-path">
                   ${u.lessons.map((l) => {
                     const isUnlocked = unlocked.has(l.id);
-                    const cls = l.done ? "lq-done" : isUnlocked ? "lq-available" : "lq-locked";
+                    const cls = l.done ? "lt-done" : isUnlocked ? "lt-available" : "lt-locked";
                     const badge = l.done ? "✅" : isUnlocked ? l.emoji : "🔒";
                     return html`
-                      <button class=${`lq-node ${cls}`} key=${l.id}
+                      <button class=${`lt-node ${cls}`} key=${l.id}
                         disabled=${!isUnlocked}
                         onClick=${() => isUnlocked && onOpenLesson(u, l)}>
-                        <span class="lq-node-badge">${badge}</span>
-                        <span class="lq-node-main">
-                          <span class="lq-node-title">${l.title}</span>
-                          <span class="lq-node-sub">${l.cards.length} word${l.cards.length === 1 ? "" : "s"}${l.done ? " · learned" : ""}</span>
+                        <span class="lt-node-badge">${badge}</span>
+                        <span class="lt-node-main">
+                          <span class="lt-node-title">${l.title}</span>
+                          <span class="lt-node-sub">${l.cards.length} word${l.cards.length === 1 ? "" : "s"}${l.done ? " · learned" : ""}</span>
                         </span>
-                        <span class="lq-node-go">${l.done ? "review" : isUnlocked ? "start ▶" : ""}</span>
+                        <span class="lt-node-go">${l.done ? "review" : isUnlocked ? "start ▶" : ""}</span>
                       </button>
                     `;
                   })}
@@ -264,35 +264,35 @@ function StudyScreen({ course, unit, lesson, invoke, onBack, onQuiz }) {
 
   return html`
     <div>
-      <div class="lq-screen-head">
-        <button class="lq-back" onClick=${onBack}><${Icon} name="arrow-left" size=${14} />Back</button>
+      <div class="lt-screen-head">
+        <button class="lt-back" onClick=${onBack}><${Icon} name="arrow-left" size=${14} />Back</button>
         <h2>${unit.emoji} ${lesson.title}</h2>
         <span class="ck-grow"></span>
         <span class="ck-caption">${idx + 1}/${lesson.cards.length}</span>
       </div>
 
-      <div class=${`lq-flash ${flipped ? "flipped" : ""}`} onClick=${() => setFlipped((f) => !f)}>
-        <div class="lq-flash-inner">
-          <div class="lq-face">
-            <span class="lq-card-label">${course.name}</span>
-            <span class="lq-card-emoji">${card.emoji}</span>
-            <span class="lq-card-word">${card.front}</span>
-            ${card.pron ? html`<span class="lq-card-pron">“${card.pron}”</span>` : null}
+      <div class=${`lt-flash ${flipped ? "flipped" : ""}`} onClick=${() => setFlipped((f) => !f)}>
+        <div class="lt-flash-inner">
+          <div class="lt-face">
+            <span class="lt-card-label">${course.name}</span>
+            <span class="lt-card-emoji">${card.emoji}</span>
+            <span class="lt-card-word">${card.front}</span>
+            ${card.pron ? html`<span class="lt-card-pron">“${card.pron}”</span>` : null}
           </div>
-          <div class="lq-face lq-face-back">
-            <span class="lq-card-label">Meaning</span>
-            <span class="lq-card-emoji">${card.emoji}</span>
-            <span class="lq-card-word">${card.back}</span>
+          <div class="lt-face lt-face-back">
+            <span class="lt-card-label">Meaning</span>
+            <span class="lt-card-emoji">${card.emoji}</span>
+            <span class="lt-card-word">${card.back}</span>
           </div>
         </div>
       </div>
-      <div class="lq-flip-hint">👆 tap the card to flip</div>
+      <div class="lt-flip-hint">👆 tap the card to flip</div>
 
-      <div class="lq-dots">
-        ${lesson.cards.map((_, i) => html`<span key=${i} class=${`lq-dot ${i === idx ? "on" : i < idx ? "seen" : ""}`}></span>`)}
+      <div class="lt-dots">
+        ${lesson.cards.map((_, i) => html`<span key=${i} class=${`lt-dot ${i === idx ? "on" : i < idx ? "seen" : ""}`}></span>`)}
       </div>
 
-      <div class="lq-row-controls">
+      <div class="lt-row-controls">
         <button class="ck-btn" disabled=${idx === 0} onClick=${() => go(-1)}>
           <${Icon} name="arrow-left" size=${16} />Prev
         </button>
@@ -319,15 +319,15 @@ function QuizScreen({ course, unit, lesson, profile, invoke, onBack, onFinish })
   if (profile.hearts <= 0) {
     return html`
       <div>
-        <div class="lq-screen-head">
-          <button class="lq-back" onClick=${onBack}><${Icon} name="arrow-left" size=${14} />Back</button>
+        <div class="lt-screen-head">
+          <button class="lt-back" onClick=${onBack}><${Icon} name="arrow-left" size=${14} />Back</button>
           <h2>${course.mascot} Out of hearts</h2>
         </div>
-        <div class="ck-card lq-out-of-hearts">
-          <div class="lq-big">💔</div>
+        <div class="ck-card lt-out-of-hearts">
+          <div class="lt-big">💔</div>
           <h3>You're out of hearts!</h3>
           <p class="ck-muted">Refill to keep quizzing — or head back and study some more.</p>
-          <div class="lq-row-controls" style="justify-content:center;margin-top:10px">
+          <div class="lt-row-controls" style="justify-content:center;margin-top:10px">
             <button class="ck-btn ck-btn-primary" disabled=${profile.gems < 15}
               onClick=${() => invoke("refill_hearts").catch(() => {})}>
               <${Icon} name="heart" size=${16} />Refill (💎15)
@@ -360,22 +360,22 @@ function QuizScreen({ course, unit, lesson, profile, invoke, onBack, onFinish })
 
   return html`
     <div>
-      <div class="lq-screen-head">
-        <button class="lq-back" onClick=${onBack}><${Icon} name="arrow-left" size=${14} />Back</button>
+      <div class="lt-screen-head">
+        <button class="lt-back" onClick=${onBack}><${Icon} name="arrow-left" size=${14} />Back</button>
         <h2>${unit.emoji} ${lesson.title} quiz</h2>
         <span class="ck-grow"></span>
-        <span class="lq-hearts">${"❤️".repeat(Math.max(0, profile.hearts))}</span>
+        <span class="lt-hearts">${"❤️".repeat(Math.max(0, profile.hearts))}</span>
       </div>
 
-      <div class="lq-quiz-prompt">
-        <div class="lq-q-emoji">${q.emoji}</div>
-        <div class="lq-q-text">${q.back}</div>
-        <div class="lq-q-hint">Tap the ${course.name} word</div>
+      <div class="lt-quiz-prompt">
+        <div class="lt-q-emoji">${q.emoji}</div>
+        <div class="lt-q-text">${q.back}</div>
+        <div class="lt-q-hint">Tap the ${course.name} word</div>
       </div>
 
-      <div class="lq-options">
+      <div class="lt-options">
         ${q.options.map((opt) => {
-          let cls = "lq-opt";
+          let cls = "lt-opt";
           if (choice) {
             if (opt === q.answer) cls += " correct";
             else if (opt === choice) cls += " wrong";
@@ -384,8 +384,8 @@ function QuizScreen({ course, unit, lesson, profile, invoke, onBack, onFinish })
         })}
       </div>
 
-      <div class="lq-quiz-foot">
-        <span class="lq-quiz-prog">Question ${qi + 1} of ${questions.length} · ${correct} correct</span>
+      <div class="lt-quiz-foot">
+        <span class="lt-quiz-prog">Question ${qi + 1} of ${questions.length} · ${correct} correct</span>
       </div>
     </div>
   `;
@@ -396,18 +396,18 @@ function QuizScreen({ course, unit, lesson, profile, invoke, onBack, onFinish })
 function Celebration({ data, onClose }) {
   return html`
     <div>
-      <div class="lq-confetti">
+      <div class="lt-confetti">
         ${data.confetti.map(
           (c) => html`<span key=${c.key} style=${`left:${c.left}%;font-size:${c.size}px;animation-delay:${c.delay}s;animation-duration:${c.dur}s`}>${c.emoji}</span>`
         )}
       </div>
-      <div class="lq-celebrate" onClick=${onClose}>
-        <div class="lq-celebrate-card">
-          <div class="lq-celebrate-mascot">${data.mascot}</div>
+      <div class="lt-celebrate" onClick=${onClose}>
+        <div class="lt-celebrate-card">
+          <div class="lt-celebrate-mascot">${data.mascot}</div>
           <h2>${data.title}</h2>
-          <div class="lq-celebrate-xp">${data.xp}</div>
-          <div class="lq-celebrate-sub">${data.sub}</div>
-          <div class="lq-celebrate-sub" style="margin-top:12px">tap to continue ✨</div>
+          <div class="lt-celebrate-xp">${data.xp}</div>
+          <div class="lt-celebrate-sub">${data.sub}</div>
+          <div class="lt-celebrate-sub" style="margin-top:12px">tap to continue ✨</div>
         </div>
       </div>
     </div>
@@ -475,7 +475,7 @@ function App({ state, invoke, connected }) {
 
       <div class="ck-spread" style="margin:-6px 0 12px">
         <span></span>
-        <span class="lq-live">
+        <span class="lt-live">
           <span class=${`ck-dot ${connected ? "ck-dot-live" : "ck-dot-off"}`}></span>
           ${connected ? "live" : "reconnecting…"}
         </span>

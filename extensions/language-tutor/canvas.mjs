@@ -1,4 +1,4 @@
-// canvas.mjs — LingoQuest canvas definition (kit config; SDK-free).
+// canvas.mjs — Language Tutor canvas definition (kit config; SDK-free).
 //
 // A gamified language tutor. The agent and the user read/write the SAME state
 // through the SAME action handlers. State is durable per-user and keyed by a
@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { userStore } from "./canvas-kit/storage.mjs";
 import { buildCourse, catalogLanguages, resolveLanguageKey } from "./catalog.mjs";
 
-const EXT_NAME = "lingo-quest";
+const EXT_NAME = "language-tutor";
 
 const XP_PER_LEVEL = 100;
 const XP_PER_LESSON = 20;
@@ -78,8 +78,8 @@ function totalLearned(course) {
 }
 
 export const canvasConfig = {
-  id: "lingo-quest",
-  displayName: "LingoQuest",
+  id: "language-tutor",
+  displayName: "Language Tutor",
   description:
     "Pick a language and the canvas spins up a gamified course — flashcards, " +
     "quizzes, XP, levels, streaks, hearts, gems, mascots and confetti. You and " +
