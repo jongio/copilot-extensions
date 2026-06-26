@@ -1,21 +1,23 @@
 # github-extensions
 
-Jon's collection of **GitHub Copilot extensions** for the GitHub Copilot app. Most are
-**canvas extensions** — interactive side-panel apps — but the collection isn't limited to
-canvases: an extension can also just contribute agent tools or hooks with no UI at all.
+Jon's collection of **GitHub Copilot extensions** — they work in both the **GitHub Copilot
+app** and the **Copilot CLI**, which load extensions from the same place. Most are **canvas
+extensions** (interactive side-panel apps, app-only since the CLI has no panel), but the
+collection isn't limited to canvases: an extension can also just contribute agent tools or
+hooks with no UI at all, and those run anywhere Copilot does.
 
 ## Install one
 
-You install extensions from inside Copilot — just ask the agent:
+You install extensions from inside Copilot — in the app or the CLI, just ask the agent:
 
 > **install the stock-ticker canvas from jongio/github-extensions/extensions/stock-ticker**
 
 Copilot fetches the folder into `~/.copilot/extensions/`, reloads, and it's ready. For a
-canvas, then:
+canvas, then (in the app):
 
 > **open stock ticker**
 
-That's it — no clone, no CLI, no build step.
+That's it — no clone, no CLI flags, no build step.
 
 ## Extensions
 
