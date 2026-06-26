@@ -1,0 +1,82 @@
+/* animations.css — Random Animal canvas animations */
+
+@keyframes bounce-in {
+  0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+  50%  { transform: scale(1.3) rotate(10deg); opacity: 1; }
+  70%  { transform: scale(0.9) rotate(-5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes fade-slide-up {
+  0%   { transform: translateY(16px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  15%  { transform: rotate(-14deg); }
+  30%  { transform: rotate(10deg); }
+  45%  { transform: rotate(-10deg); }
+  60%  { transform: rotate(6deg); }
+  75%  { transform: rotate(-4deg); }
+}
+
+@keyframes slide-in {
+  0%   { transform: translateX(-12px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { filter: drop-shadow(0 0 0px transparent); }
+  50%      { filter: drop-shadow(0 0 8px var(--ck-accent, #58a6ff)); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+.animal-emoji {
+  animation: bounce-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  display: inline-block;
+}
+
+.animal-emoji.floating {
+  animation: bounce-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+             float 3s ease-in-out 0.5s infinite;
+}
+
+.animal-card {
+  animation: fade-slide-up 0.4s ease-out both;
+}
+
+.animal-name {
+  animation: fade-slide-up 0.4s ease-out 0.15s both;
+}
+
+.animal-fact {
+  animation: fade-slide-up 0.4s ease-out 0.3s both;
+}
+
+.roll-btn-rolling svg {
+  animation: wiggle 0.6s ease-in-out infinite;
+}
+
+.history-item {
+  animation: slide-in 0.3s ease-out both;
+}
+
+.roll-btn {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.roll-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+.roll-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.empty-paw {
+  animation: float 2.5s ease-in-out infinite;
+  display: inline-block;
+}
