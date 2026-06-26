@@ -1,4 +1,4 @@
-# github-extensions
+# copilot-extensions
 
 Jon's collection of **GitHub Copilot extensions** — they work in both the **GitHub Copilot
 app** and the **Copilot CLI**, which load extensions from the same place. Most are **canvas
@@ -10,7 +10,7 @@ hooks with no UI at all, and those run anywhere Copilot does.
 
 You install extensions from inside Copilot — in the app or the CLI, just ask the agent:
 
-> **install the stock-ticker canvas from jongio/github-extensions/extensions/stock-ticker**
+> **install the stock-ticker canvas from jongio/copilot-extensions/extensions/stock-ticker**
 
 Copilot fetches the folder into `~/.copilot/extensions/`, reloads, and it's ready. For a
 canvas, then (in the app):
@@ -49,7 +49,7 @@ folder under `extensions/` and add a row with its type.
 ## Repository layout
 
 ```
-github-extensions/
+copilot-extensions/
 ├─ extensions/                 # the extensions, one self-contained folder each
 │  └─ stock-ticker/
 ├─ scripts/
