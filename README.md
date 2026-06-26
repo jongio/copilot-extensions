@@ -23,6 +23,7 @@ That's it — no clone, no CLI flags, no build step.
 
 | Extension | Type | What it is |
 | --- | --- | --- |
+| [`news-aggregator`](extensions/news-aggregator) | Canvas | Pick a topic or free-text search and get a live, shared news feed (Google News, no API key). Save/favorite/hide items, search history, pin searches as custom topics with auto-picked icons, sort & filter, and visible-only auto-refresh. |
 | [`stock-ticker`](extensions/stock-ticker) | Canvas | A personalized live stock watchlist — shared between you and the agent, with live quotes and sparklines. |
 | [`random-animal`](extensions/random-animal) | Canvas | Roll the dice to discover a random animal and a fun fact — with bounce-in animations, floating emojis, and roll history. |
 
@@ -53,6 +54,7 @@ folder under `extensions/` and add a row with its type.
 ```
 copilot-extensions/
 ├─ extensions/                 # the extensions, one self-contained folder each
+│  ├─ news-aggregator/
 │  ├─ stock-ticker/
 │  └─ random-animal/
 ├─ scripts/
