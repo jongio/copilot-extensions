@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>News Aggregator</title>
+    <link rel="stylesheet" href="/kit/theme.css" />
+    <style>
+      .na-head { margin-bottom: 12px; }
+      .na-controls { margin: 10px 0 12px; }
+      .na-section { margin-bottom: 10px; }
+
+      /* topic chips */
+      .na-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .na-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        font: inherit; font-size: var(--text-caption, 12px); font-weight: var(--ck-fw-medium);
+        padding: 4px 10px; border-radius: 999px;
+        border: 1px solid var(--ck-border); background: var(--ck-bg-inset);
+        color: var(--ck-muted); cursor: pointer; max-width: 100%;
+      }
+      .na-chip:hover { color: var(--ck-fg); border-color: var(--ck-fg); }
+      .na-chip[aria-pressed="true"] {
+        background: var(--background-color-button-primary-rest, #238636);
+        border-color: transparent; color: #fff;
+      }
+      .na-chip:disabled { opacity: 0.6; cursor: progress; }
+      .na-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+      .na-chip-pinned { border-style: dashed; }
+      .na-chip-edit {
+        display: inline-flex; align-items: center; justify-content: center;
+        margin: -2px -4px -2px 0; padding: 2px; border-radius: 50%;
+        opacity: 0.7;
+      }
+      .na-chip-edit:hover { opacity: 1; background: rgba(255,255,255,0.18); }
+
+      /* search box + history */
+      .na-search { margin-bottom: 8px; }
+      .na-hist { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+      .na-pill {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: var(--text-caption, 12px); color: var(--ck-muted);
+        background: var(--ck-bg-inset); border: 1px solid var(--ck-border-muted);
+        border-radius: 999px; padding: 2px 4px 2px 10px;
+      }
+      .na-pill button { border: 0; background: transparent; color: inherit; cursor: pointer; padding: 2px; border-radius: 50%; display: inline-flex; }
+      .na-pill .na-pill-q { cursor: pointer; }
+      .na-pill .na-pill-q:hover { color: var(--ck-fg); text-decoration: underline; }
+      .na-pill button:hover { color: var(--ck-fg); background: rgba(255,255,255,0.1); }
+
+      /* pin editor */
+      .na-editor { margin-top: 8px; }
+      .na-editor .ck-row { gap: 8px; }
+      .na-iconpicker { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+      .na-iconbtn {
+        width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 6px; border: 1px solid var(--ck-border); background: var(--ck-bg-inset);
+        color: var(--ck-muted); cursor: pointer;
+      }
+      .na-iconbtn:hover { color: var(--ck-fg); border-color: var(--ck-fg); }
+      .na-iconbtn[aria-pressed="true"] { color: #fff; border-color: var(--ck-accent); background: var(--ck-accent); }
+
+      /* toolbar: view tabs + sort + filter */
+      .na-toolbar { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 10px; }
+      .na-filter { position: relative; flex: 1 1 auto; }
+      .na-filter .ck-input { padding-left: 28px; }
+      .na-filter .na-filter-ico { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--ck-muted); pointer-events: none; }
+      .na-select {
+        font: inherit; color: var(--ck-fg);
+        background: var(--ck-bg-inset); border: 1px solid var(--ck-border);
+        border-radius: var(--ck-radius); padding: 4px 8px;
+      }
+
+      /* article list */
+      .na-list { display: flex; flex-direction: column; gap: 8px; }
+      .na-card { display: flex; gap: 10px; align-items: flex-start; padding: 10px; }
+      .na-thumb {
+        flex: none; width: 56px; height: 56px; border-radius: 8px; overflow: hidden;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--ck-bg-inset); border: 1px solid var(--ck-border-muted);
+      }
+      .na-thumb img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+      .na-thumb-letter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px; color: #fff; }
+      .na-body { flex: 1 1 auto; min-width: 0; }
+      .na-title { font-weight: var(--ck-fw-semibold); line-height: 1.3; color: inherit; }
+      .na-titlelink { color: inherit; }
+      .na-titlelink:hover .na-title { color: var(--ck-link); }
+      .na-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: var(--text-caption, 12px); color: var(--ck-muted); flex-wrap: wrap; }
+      .na-fav-ico { width: 14px; height: 14px; border-radius: 3px; }
+      .na-source { font-weight: var(--ck-fw-medium); color: var(--ck-fg); }
+      .na-dot { opacity: 0.5; }
+      .na-actions { display: flex; flex-direction: column; gap: 4px; flex: none; }
+      .na-iconaction {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 6px;
+        border: 1px solid transparent; background: transparent; color: var(--ck-muted); cursor: pointer;
+      }
+      .na-iconaction:hover { background: var(--background-color-button-default-hover, #30363d); color: var(--ck-fg); }
+      .na-iconaction[aria-pressed="true"] { color: var(--ck-attention); }
+      .na-iconaction.na-act-fav[aria-pressed="true"] { color: #e3b341; }
+      .na-iconaction.na-act-save[aria-pressed="true"] { color: var(--ck-success); }
+
+      .na-error { color: var(--ck-danger); border-color: var(--ck-danger); }
+      .na-spin { animation: na-spin 0.9s linear infinite; }
+      @keyframes na-spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div id="app"><p class="ck-muted">Loading…</p></div>
+    <script type="module" src="./app.mjs"></script>
+  </body>
+</html>
