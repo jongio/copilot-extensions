@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stock Ticker</title>
+    <link rel="stylesheet" href="/kit/theme.css" />
+    <style>
+      .st-head { margin-bottom: 12px; }
+      .st-sub { gap: 10px; }
+
+      /* scrolling ticker tape */
+      .st-tape {
+        overflow: hidden;
+        border: 1px solid var(--ck-border);
+        border-radius: var(--ck-radius);
+        background: var(--ck-bg-inset);
+        padding: 6px 0;
+        margin: 10px 0 14px;
+        position: relative;
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+        mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+      }
+      .st-tape-track {
+        display: inline-flex;
+        gap: 26px;
+        white-space: nowrap;
+        padding-left: 26px;
+        animation: st-marquee 38s linear infinite;
+        will-change: transform;
+      }
+      .st-tape:hover .st-tape-track { animation-play-state: paused; }
+      @keyframes st-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+      @media (prefers-reduced-motion: reduce) {
+        .st-tape-track { animation: none; }
+      }
+      .st-tape-item { display: inline-flex; align-items: baseline; gap: 7px; font-size: 13px; }
+      .st-tape-sym { font-weight: var(--ck-fw-semibold); }
+      .st-tape-px { font-family: var(--ck-mono); }
+
+      .st-controls { gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+      .st-add { min-width: 150px; }
+      .st-alias-in { max-width: 150px; }
+
+      .st-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+
+      .st-card { display: flex; flex-direction: column; gap: 8px; }
+      .st-card.st-up { border-left: 3px solid var(--ck-success); }
+      .st-card.st-down { border-left: 3px solid var(--ck-danger); }
+      .st-card.st-flat { border-left: 3px solid var(--ck-border); }
+      .st-card.st-err { border-left: 3px solid var(--ck-attention); }
+
+      .st-sym { font-weight: var(--ck-fw-semibold); font-size: 15px; }
+      .st-ex { font-size: 11px; }
+      .st-name { font-size: 12px; }
+      .st-price { font-family: var(--ck-mono); font-size: 22px; font-weight: var(--ck-fw-semibold); line-height: 1.1; }
+      .st-cur { font-size: 11px; color: var(--ck-muted); margin-left: 4px; }
+      .st-chg { display: inline-flex; align-items: center; gap: 4px; font-family: var(--ck-mono); font-size: 13px; font-weight: var(--ck-fw-medium); }
+      .st-pos { color: var(--ck-success); }
+      .st-neg { color: var(--ck-danger); }
+      .st-neu { color: var(--ck-muted); }
+
+      .st-spark { display: block; width: 100%; height: 40px; }
+
+      .st-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; font-size: 12px; }
+      .st-stat { display: flex; justify-content: space-between; gap: 8px; }
+      .st-stat-k { color: var(--ck-muted); }
+      .st-stat-v { font-family: var(--ck-mono); }
+
+      .st-card-actions { gap: 6px; margin-top: 2px; }
+      .st-card-top { align-items: flex-start; }
+      .st-fade { opacity: .55; }
+
+      /* drag-and-drop reorder */
+      .st-grip {
+        display: inline-flex; align-items: center; justify-content: center;
+        color: var(--ck-muted); cursor: grab; margin: -2px -2px 0 -4px;
+        border-radius: 4px; flex: none;
+      }
+      .st-grip:hover { color: var(--ck-fg); background: var(--ck-bg-inset); }
+      .st-card[draggable="true"] { cursor: grab; }
+      .st-card.st-dragging { opacity: .4; cursor: grabbing; }
+      .st-card.st-drag-over { outline: 2px dashed var(--ck-accent); outline-offset: 2px; }
+      .st-hint { display: inline-flex; align-items: center; gap: 3px; color: var(--ck-muted); }
+    </style>
+  </head>
+  <body>
+    <div id="app"><p class="ck-muted">Loading…</p></div>
+    <script type="module" src="./app.mjs"></script>
+  </body>
+</html>
