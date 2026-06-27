@@ -11,7 +11,10 @@
 // All network I/O lives server-side in canvas.mjs. The view never fetches a
 // quote itself — it only calls invoke("refresh_quotes") and renders the result.
 
-import { html, mountCanvas, useState, useEffect, Icon } from "/kit/client.mjs";
+import {
+  html, mountCanvas, useState, useEffect, Icon,
+  pollWhileVisible, compactNumber, relativeTime, percent,
+} from "/kit/client.mjs";
 
 const SORTS = [
   { id: "watchlist", label: "List" },
@@ -44,19 +47,12 @@ function fmtSigned(v) {
   if (v == null) return "—";
   return `${v >= 0 ? "+" : ""}${fmtNum(v)}`;
 }
-function fmtPct(v) {
-  if (v == null) return "—";
-  return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
-}
-function fmtVol(v) {
-  if (v == null) return "—";
-  return v.toLocaleString(undefined, { notation: "compact", maximumFractionDigits: 2 });
-}
-function fmtTime(ms) {
-  if (!ms) return "never";
-  const d = new Date(ms);
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
+// % change, compact volume, and relative "updated" time now come from the kit:
+//   fmtPct  -> percent        (signed, 2-digit, "—" fallback — identical output)
+//   fmtVol  -> compactNumber  (compact notation, 2-digit, "—" fallback)
+//   fmtTime -> relativeTime   (shows staleness, e.g. "5m ago", "never" when unset)
+// fmtNum/fmtSigned/fmtPrice stay local — variable-precision + currency span have
+// no kit equivalent.
 
 function dir(change) {
   return change > 0 ? "up" : change < 0 ? "down" : "flat";
@@ -114,7 +110,7 @@ function TapeItem({ row }) {
     <span class="st-tape-sym">${label}</span>
     <span class="st-tape-px">${fmtNum(q.price)}</span>
     <span class=${`st-chg ${chgClass(q.change)}`}>
-      <${Icon} name=${chgIcon(q.change)} size=${12} />${fmtPct(q.changePct)}
+      <${Icon} name=${chgIcon(q.change)} size=${12} />${percent(q.changePct)}
     </span>
   </span>`;
 }
@@ -273,7 +269,7 @@ function QuoteCard({ row, invoke, dnd }) {
         <div class="st-price">${fmtPrice(q.price, q.currency)}</div>
         <div class=${`st-chg ${chgClass(q.change)}`}>
           <${Icon} name=${chgIcon(q.change)} size=${16} />
-          ${fmtSigned(q.change)} (${fmtPct(q.changePct)})
+          ${fmtSigned(q.change)} (${percent(q.changePct)})
         </div>
       </div>
 
@@ -281,7 +277,7 @@ function QuoteCard({ row, invoke, dnd }) {
 
       <div class="st-stats">
         <div class="st-stat"><span class="st-stat-k">Day</span><span class="st-stat-v">${fmtNum(q.dayLow)}–${fmtNum(q.dayHigh)}</span></div>
-        <div class="st-stat"><span class="st-stat-k">Vol</span><span class="st-stat-v">${fmtVol(q.volume)}</span></div>
+        <div class="st-stat"><span class="st-stat-k">Vol</span><span class="st-stat-v">${compactNumber(q.volume)}</span></div>
         <div class="st-stat"><span class="st-stat-k">52w</span><span class="st-stat-v">${fmtNum(q.week52Low)}–${fmtNum(q.week52High)}</span></div>
         <div class="st-stat"><span class="st-stat-k">Prev</span><span class="st-stat-v">${fmtNum(q.prevClose)}</span></div>
       </div>
@@ -298,13 +294,14 @@ function App({ state, invoke, connected }) {
   const [dragSym, setDragSym] = useState(null);
   const [overSym, setOverSym] = useState(null);
 
-  // Initial pull + auto-refresh loop. invoke is stable across renders.
+  // Auto-refresh loop. Delegated to the kit's pollWhileVisible so a backgrounded
+  // panel stops polling Yahoo (it returns a useEffect-ready cleanup; autoSecs<=0
+  // is a no-op). invoke is stable across renders.
   useEffect(() => { invoke("refresh_quotes").catch(() => {}); }, []);
-  useEffect(() => {
-    if (!autoSecs) return;
-    const id = setInterval(() => { invoke("refresh_quotes").catch(() => {}); }, autoSecs * 1000);
-    return () => clearInterval(id);
-  }, [autoSecs]);
+  useEffect(
+    () => pollWhileVisible(() => invoke("refresh_quotes"), autoSecs),
+    [autoSecs],
+  );
 
   if (!state) return html`<p class="ck-muted">Loading…</p>`;
 
@@ -410,7 +407,7 @@ function App({ state, invoke, connected }) {
           ${dndEnabled
             ? html`<span class="st-hint"><${Icon} name="grip-vertical" size=${12} />Drag to reorder · </span>`
             : null}
-          Updated ${fmtTime(state.lastRefresh ? Date.parse(state.lastRefresh) : 0)}
+          Updated ${relativeTime(state.lastRefresh, { fallback: "never" })}
         </span>
       </div>
 

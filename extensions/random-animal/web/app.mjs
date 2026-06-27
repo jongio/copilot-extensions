@@ -1,6 +1,6 @@
 // web/app.mjs — Preact view for the Random Animal canvas.
 
-import { html, mountCanvas, useState, Icon } from "/kit/client.mjs";
+import { html, mountCanvas, useState, Icon, relativeTime } from "/kit/client.mjs";
 
 function AnimalCard({ animal }) {
   if (!animal) return null;
@@ -23,6 +23,9 @@ function HistoryItem({ animal, index }) {
           ${animal.fact}
         </div>
       </div>
+      ${animal.rolledAt
+        ? html`<span class="ck-caption ck-muted" style="flex:none;white-space:nowrap">${relativeTime(animal.rolledAt)}</span>`
+        : null}
     </div>
   `;
 }
