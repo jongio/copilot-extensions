@@ -40,11 +40,11 @@ say, Copilot installs to user scope.
 
 ## Building your own
 
-Canvas extensions are built with [`create-canvas-kit`](https://github.com/jongio/skills/tree/main/skills/create-canvas-kit) —
+Canvas extensions are built with [`create-canvas-app`](https://github.com/jongio/skills/tree/main/skills/create-canvas-app) —
 a Copilot skill (in [`jongio/skills`](https://github.com/jongio/skills)) that scaffolds a canvas
 (Preact + htm, Octicons, no build step). To add one here: generate it with the kit, drop the folder
 under `extensions/`, add a row to the table above, and it's installable the same way. See the kit's
-[**Ship it**](https://github.com/jongio/skills/blob/main/skills/create-canvas-kit/README.md#ship-it)
+[**Ship it**](https://github.com/jongio/skills/blob/main/skills/create-canvas-app/README.md#ship-it)
 section for the round trip.
 
 Non-canvas extensions are just an `extension.mjs` that contributes tools or hooks — drop the
