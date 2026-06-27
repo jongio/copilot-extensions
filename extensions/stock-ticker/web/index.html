@@ -31,9 +31,6 @@
       }
       .st-tape:hover .st-tape-track { animation-play-state: paused; }
       @keyframes st-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-      @media (prefers-reduced-motion: reduce) {
-        .st-tape-track { animation: none; }
-      }
       .st-tape-item { display: inline-flex; align-items: baseline; gap: 7px; font-size: 13px; }
       .st-tape-sym { font-weight: var(--ck-fw-semibold); }
       .st-tape-px { font-family: var(--ck-mono); }
