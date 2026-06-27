@@ -5,7 +5,7 @@
 // refresh_quotes path is exercised structurally, not over the wire). Run:
 //   node extensions/stock-ticker/test/smoke.test.mjs
 //
-// Modeled on create-canvas-kit/test/http.test.mjs. Maps to the kit-sync ACs:
+// Modeled on create-canvas-app/test/http.test.mjs. Maps to the kit-sync ACs:
 //   /kit/format.mjs resolves · /kit/client.mjs re-exports format + pollWhileVisible
 //   · reduced-motion guard present · format helpers produce expected strings
 //   · auto-refresh wired through pollWhileVisible · actions mutate shared state.

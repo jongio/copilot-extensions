@@ -4,7 +4,7 @@
 // the canvas webview would. No SDK, no CLI, no network. Run:
 //   node extensions/random-animal/test/smoke.test.mjs
 //
-// Modeled on create-canvas-kit/test/http.test.mjs. Maps to the kit-sync ACs:
+// Modeled on create-canvas-app/test/http.test.mjs. Maps to the kit-sync ACs:
 //   /kit/format.mjs resolves · /kit/client.mjs re-exports format helpers
 //   · reduced-motion guard now present (was missing) · format helpers work
 //   · canvas.mjs uses the kit nid · roll mutates shared state.
