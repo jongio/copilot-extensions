@@ -7,6 +7,7 @@
 
 import { fileURLToPath } from "node:url";
 import { userStore } from "./canvas-kit/storage.mjs";
+import { nid } from "./canvas-kit/format.mjs";
 import { buildCourse, catalogLanguages, resolveLanguageKey } from "./catalog.mjs";
 
 const EXT_NAME = "language-tutor";
@@ -17,10 +18,6 @@ const XP_PER_CORRECT = 5;
 const GEMS_PER_LESSON = 5;
 const MAX_HEARTS = 5;
 const REFILL_COST = 15;
-
-function nid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-}
 
 function fileFor(domainId) {
   const safe = String(domainId).replace(/[^A-Za-z0-9._-]/g, "_") || "default";

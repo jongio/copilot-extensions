@@ -6,7 +6,10 @@
 // filter, the pin being edited, drafts) lives in useState. Because Preact DIFFS
 // the DOM (no innerHTML repaint), a live push never clobbers what you're typing.
 
-import { html, mountCanvas, useState, useEffect, Icon } from "/kit/client.mjs";
+import {
+  html, mountCanvas, useState, useEffect, Icon,
+  pollWhileVisible, relativeTime,
+} from "/kit/client.mjs";
 
 // Built-in topics — mirrors TOPICS in canvas.mjs (icons are view-only).
 const TOPICS = [
@@ -38,18 +41,8 @@ const REFRESH_OPTIONS = [
   { v: 600, label: "10m" },
 ];
 
-function relTime(ms) {
-  if (!ms) return "";
-  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(ms).toLocaleDateString();
-}
+// relTime is now the kit's relativeTime ("just now" / "5m ago" / locale date),
+// imported above — it accepts epoch ms (publishedAt) or an ISO string (lastRefresh).
 function hostOf(link, fallback) {
   if (fallback) return fallback;
   try {
@@ -136,7 +129,7 @@ function ArticleCard({ a, mark, view, invoke }) {
           <${Favicon} host=${a.sourceHost} />
           ${a.source ? html`<span class="na-source">${a.source}</span>` : null}
           ${a.publishedAt
-            ? html`<span class="na-dot">·</span><span>${relTime(a.publishedAt)}</span>`
+            ? html`<span class="na-dot">·</span><span>${relativeTime(a.publishedAt)}</span>`
             : null}
           ${host && host !== a.source?.toLowerCase()
             ? html`<span class="na-dot">·</span><span>${host}</span>`
@@ -199,7 +192,7 @@ function TopicChips({ activeId, pinned, invoke, onEdit }) {
       <${Icon}
         name=${busy === id ? "loader-circle" : icon || "tag"}
         size=${14}
-        class=${busy === id ? "ck-icon na-spin" : "ck-icon"}
+        class=${busy === id ? "ck-spinner" : ""}
       />
       <span class="na-chip-label">${label}</span>
       ${isPin
@@ -327,7 +320,7 @@ function SearchPanel({ state, invoke }) {
           <${Icon}
             name=${busy ? "loader-circle" : "search"}
             size=${16}
-            class=${busy ? "ck-icon na-spin" : "ck-icon"}
+            class=${busy ? "ck-spinner" : ""}
           />
           Search
         </button>
@@ -415,15 +408,12 @@ function App({ state, invoke, connected }) {
     }
   }, [state?.lastRefresh]);
 
-  // Auto-refresh on an interval, but only while the canvas is visible.
-  useEffect(() => {
-    const sec = state?.autoRefreshSec || 0;
-    if (!sec) return;
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") invoke("refresh", {}).catch(() => {});
-    }, sec * 1000);
-    return () => clearInterval(timer);
-  }, [state?.autoRefreshSec]);
+  // Auto-refresh on an interval, but only while the canvas is visible — delegated
+  // to the kit's pollWhileVisible (returns a useEffect-ready cleanup; <=0 no-ops).
+  useEffect(
+    () => pollWhileVisible(() => invoke("refresh", {}), state?.autoRefreshSec || 0),
+    [state?.autoRefreshSec],
+  );
 
   if (!state) return html`<p class="ck-muted">Loading…</p>`;
 
@@ -585,13 +575,13 @@ function App({ state, invoke, connected }) {
               </button>`
             : null}
           ${state.lastRefresh
-            ? html`<span class="ck-caption">updated ${relTime(Date.parse(state.lastRefresh))}</span>`
+            ? html`<span class="ck-caption">updated ${relativeTime(state.lastRefresh)}</span>`
             : null}
         </span>
       </div>
 
       ${state.error
-        ? html`<div class="ck-card na-error ck-row" style="gap:8px;margin-bottom:10px">
+        ? html`<div class="ck-callout ck-error" style="margin-bottom:10px">
             <${Icon} name="circle-x" size=${16} /><span>${state.error}</span>
           </div>`
         : null}

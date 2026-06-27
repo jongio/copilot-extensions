@@ -55,17 +55,20 @@ folder under `extensions/` and add a row with its type.
 ```
 copilot-extensions/
 ├─ extensions/                 # the extensions, one self-contained folder each
-│  ├─ news-aggregator/
+│  ├─ news-aggregator/         # …each with a test/smoke.test.mjs
 │  ├─ stock-ticker/
 │  ├─ random-animal/
 │  └─ language-tutor/
 ├─ scripts/
-│  └─ validate-extensions.mjs  # structure check (run in CI)
+│  ├─ validate-extensions.mjs  # structure check (run in CI)
+│  └─ run-tests.mjs            # runs every extension's smoke test
 └─ .github/workflows/
    └─ validate.yml
 ```
 
-Validate locally with `node scripts/validate-extensions.mjs`.
+Validate locally with `node scripts/validate-extensions.mjs`, and run the smoke
+tests with `node scripts/run-tests.mjs` (each boots its canvas's kit runtime over
+loopback HTTP — no SDK, no network). CI runs the structure check.
 
 ## License
 
