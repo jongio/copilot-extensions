@@ -27,6 +27,7 @@ That's it — no clone, no CLI flags, no build step.
 | [`stock-ticker`](extensions/stock-ticker) | Canvas | A personalized live stock watchlist — shared between you and the agent, with live quotes and sparklines. |
 | [`random-animal`](extensions/random-animal) | Canvas | Roll the dice to discover a random animal and a fun fact — with bounce-in animations, floating emojis, and roll history. |
 | [`language-tutor`](extensions/language-tutor) | Canvas | Pick a language and a gamified course appears — flashcards, quizzes, XP, levels, streaks, hearts, gems, mascots and confetti. You and the agent share one learner profile. |
+| [`wiki-discover`](extensions/wiki-discover) | Canvas | A "for you" Wikipedia reader shared with the agent — pick interests (or thumbs up / meh / not-for-me each article) and it learns your topics and surfaces popular articles you'll find interesting, with article images and a live preference profile. |
 
 Each lives in its own folder under [`extensions/`](extensions) and is fully self-contained
 (its `extension.mjs` plus whatever it needs — for a canvas that's `canvas-kit/` + `web/` +
@@ -58,7 +59,8 @@ copilot-extensions/
 │  ├─ news-aggregator/         # …each with a test/smoke.test.mjs
 │  ├─ stock-ticker/
 │  ├─ random-animal/
-│  └─ language-tutor/
+│  ├─ language-tutor/
+│  └─ wiki-discover/
 ├─ scripts/
 │  ├─ validate-extensions.mjs  # structure check (run in CI)
 │  └─ run-tests.mjs            # runs every extension's smoke test (run in CI)
