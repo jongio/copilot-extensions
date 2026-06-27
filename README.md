@@ -28,6 +28,7 @@ That's it — no clone, no CLI flags, no build step.
 | [`random-animal`](extensions/random-animal) | Canvas | Roll the dice to discover a random animal and a fun fact — with bounce-in animations, floating emojis, and roll history. |
 | [`language-tutor`](extensions/language-tutor) | Canvas | Pick a language and a gamified course appears — flashcards, quizzes, XP, levels, streaks, hearts, gems, mascots and confetti. You and the agent share one learner profile. |
 | [`wiki-discover`](extensions/wiki-discover) | Canvas | A "for you" Wikipedia reader shared with the agent — pick interests (or thumbs up / meh / not-for-me each article) and it learns your topics and surfaces popular articles you'll find interesting, with article images and a live preference profile. |
+| [`code-tutor`](extensions/code-tutor) | Canvas | Turns the current codebase into a personal CS course: extracts the algorithms, data structures, complexity and theory in your code, explains each at an adjustable level (ELI5 to Wizard), points at real files with syntax-highlighted code, tracks what you understand, answers questions, and reviews good/ok/bad spots with a path to fix them. |
 
 Each lives in its own folder under [`extensions/`](extensions) and is fully self-contained
 (its `extension.mjs` plus whatever it needs — for a canvas that's `canvas-kit/` + `web/` +
@@ -60,7 +61,8 @@ copilot-extensions/
 │  ├─ stock-ticker/
 │  ├─ random-animal/
 │  ├─ language-tutor/
-│  └─ wiki-discover/
+│  ├─ wiki-discover/
+│  └─ code-tutor/
 ├─ scripts/
 │  ├─ validate-extensions.mjs  # structure check (run in CI)
 │  └─ run-tests.mjs            # runs every extension's smoke test (run in CI)
