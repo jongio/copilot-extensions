@@ -61,14 +61,15 @@ copilot-extensions/
 │  └─ language-tutor/
 ├─ scripts/
 │  ├─ validate-extensions.mjs  # structure check (run in CI)
-│  └─ run-tests.mjs            # runs every extension's smoke test
+│  └─ run-tests.mjs            # runs every extension's smoke test (run in CI)
 └─ .github/workflows/
    └─ validate.yml
 ```
 
 Validate locally with `node scripts/validate-extensions.mjs`, and run the smoke
 tests with `node scripts/run-tests.mjs` (each boots its canvas's kit runtime over
-loopback HTTP — no SDK, no network). CI runs the structure check.
+loopback HTTP — no SDK, no network). CI runs both the structure check and the
+smoke tests on every push and pull request.
 
 ## License
 

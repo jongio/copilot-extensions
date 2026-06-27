@@ -115,6 +115,8 @@ async function main() {
     assert.doesNotMatch(src, /setInterval/);
     assert.doesNotMatch(src, /na-spin/);
     assert.doesNotMatch(src, /na-error/);
+    assert.match(src, /ck-skeleton/); // initial feed-load renders kit skeletons
+    assert.match(src, /loadingFeed/); // gated on the initial-load window
     const htmlShell = await readFile(join(EXT, "web", "index.html"), "utf8");
     assert.doesNotMatch(htmlShell, /na-spin/);
     assert.doesNotMatch(htmlShell, /na-error/);
