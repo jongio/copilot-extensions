@@ -395,6 +395,19 @@ function sortList(list, sort) {
   return arr;
 }
 
+// Placeholder card shown while the initial feed is still loading. Mirrors the
+// .na-card layout (thumb + title/meta lines) with kit ck-skeleton shimmer.
+function SkeletonCard() {
+  return html`<div class="ck-card na-card" aria-hidden="true">
+    <div class="na-thumb ck-skeleton"></div>
+    <div class="na-body" style="display:flex;flex-direction:column;gap:8px">
+      <div class="ck-skeleton" style="width:92%;height:14px"></div>
+      <div class="ck-skeleton" style="width:60%;height:14px"></div>
+      <div class="ck-skeleton" style="width:38%;height:12px"></div>
+    </div>
+  </div>`;
+}
+
 function App({ state, invoke, connected }) {
   const [tab, setTab] = useState(null); // "topics" | "search"
   const [sort, setSort] = useState("new");
@@ -440,6 +453,13 @@ function App({ state, invoke, connected }) {
       )
     : base;
   list = sortList(list, sort);
+
+  // True only during the initial feed load — the same window the auto-load effect
+  // above fires in (no prior refresh, no error, nothing to show yet). Once set_topic
+  // resolves, lastRefresh is set (or error is) and this flips false, so the skeleton
+  // never sticks. Gated to the feed view so saved/favorites keep their empty states.
+  const loadingFeed =
+    view === "feed" && !state.lastRefresh && !state.error && list.length === 0;
 
   const pinActive = pinned.find((p) => p.id === state.activeId);
   const where =
@@ -597,6 +617,10 @@ function App({ state, invoke, connected }) {
                 invoke=${invoke}
               />`
             )
+          : loadingFeed
+          ? html`<div role="status" aria-label="Loading headlines" style="display:flex;flex-direction:column;gap:8px">
+              ${Array.from({ length: 6 }, (_, i) => html`<${SkeletonCard} key=${`sk-${i}`} />`)}
+            </div>`
           : !state.error
           ? html`<div class="ck-empty">
               <${Icon} name=${view === "saved" ? "bookmark" : view === "favorites" ? "star" : "newspaper"} size=${20} />
