@@ -23,6 +23,10 @@ export { Icon, lucideSVG, hasIcon, iconNames } from "./icons.mjs";
 // SDK-free canvas.mjs). Re-exported here so views have one import site.
 export { nid, relativeTime, compactNumber, percent } from "./format.mjs";
 
+// Kit version stamp — lets a canvas (or the sync/freshness tooling) report which
+// kit snapshot it was built from.
+export { KIT_VERSION } from "./version.mjs";
+
 /**
  * Run `tick` on an interval, but only while the panel is visible — so a
  * backgrounded canvas stops polling a (possibly rate-limited) upstream. Returns
@@ -110,12 +114,18 @@ export function mountCanvas({ view, mount, onState, poll } = {}) {
   function connect() {
     const es = new EventSource("./events");
     es.onmessage = (e) => {
+      let next;
       try {
-        state = JSON.parse(e.data);
-        connected = true;
-        onState?.(state);
-        rerender();
-      } catch { /* ignore malformed frame */ }
+        next = JSON.parse(e.data);
+      } catch {
+        return; // ignore a malformed SSE frame; the next push recovers
+      }
+      // Update + render OUTSIDE the try so a bug in onState/the view surfaces as
+      // a real error instead of being silently mislabeled a "malformed frame".
+      state = next;
+      connected = true;
+      onState?.(state);
+      rerender();
     };
     es.onopen = () => { connected = true; rerender(); };
     es.onerror = () => { connected = false; rerender(); /* EventSource auto-reconnects */ };
