@@ -113,6 +113,7 @@ async function main() {
     const src = await readFile(join(EXT, "web", "app.mjs"), "utf8");
     assert.match(src, /pollWhileVisible/);
     assert.doesNotMatch(src, /setInterval/); // hand-rolled interval removed
+    assert.match(src, /ck-skeleton/); // quote-loading state renders a kit skeleton
   });
 
   await test("POST /action set_range mutates shared state", async () => {

@@ -221,11 +221,17 @@ function QuoteCard({ row, invoke, dnd }) {
             <${Icon} name="trash-2" size=${14} />
           </button>
         </div>
-        <div class="ck-row" style="gap:6px">
-          ${q?.error
-            ? html`<${Icon} name="triangle-alert" size=${14} /><span class="ck-caption">${q.error}</span>`
-            : html`<span class="ck-caption ck-muted">Loading quote…</span>`}
-        </div>
+        ${q?.error
+          ? html`<div class="ck-row" style="gap:6px">
+              <${Icon} name="triangle-alert" size=${14} /><span class="ck-caption">${q.error}</span>
+            </div>`
+          : html`<div aria-hidden="true" style="display:flex;flex-direction:column;gap:8px">
+              <div class="ck-spread" style="align-items:flex-end">
+                <div class="ck-skeleton" style="width:104px;height:24px"></div>
+                <div class="ck-skeleton" style="width:84px;height:14px"></div>
+              </div>
+              <div class="ck-skeleton st-spark"></div>
+            </div>`}
       </div>
     `;
   }
