@@ -251,7 +251,7 @@ function CourseHome({ course, invoke, onOpenLesson, onChange }) {
 
 // ---- study (flashcards) ----------------------------------------------------
 
-function StudyScreen({ course, unit, lesson, invoke, onBack, onQuiz }) {
+function StudyScreen({ course, unit, lesson, examples, invoke, onBack, onQuiz }) {
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const card = lesson.cards[Math.min(idx, lesson.cards.length - 1)];
@@ -261,6 +261,11 @@ function StudyScreen({ course, unit, lesson, invoke, onBack, onQuiz }) {
     setIdx(next);
     setFlipped(false);
   }
+
+  const exKey = `${course.code}::${String(card.front || "").toLowerCase()}`;
+  const ex = examples?.[exKey];
+  const exPending = !!ex?.pending;
+  const exLines = ex?.text ? ex.text.split("\n").map((s) => s.trim()).filter(Boolean) : [];
 
   return html`
     <div>
@@ -287,6 +292,37 @@ function StudyScreen({ course, unit, lesson, invoke, onBack, onQuiz }) {
         </div>
       </div>
       <div class="lt-flip-hint">👆 tap the card to flip</div>
+
+      <div class="lt-example">
+        ${exLines.length
+          ? html`<div class="ck-card lt-example-card" style="padding:10px 12px">
+              <div class="ck-row" style="gap:6px;margin-bottom:4px">
+                <${Icon} name="sparkles" size=${14} />
+                <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.04em">AI example</strong>
+              </div>
+              <div class="lt-example-target" style="font-weight:600">${exLines[0]}</div>
+              ${exLines[1] ? html`<div class="ck-muted" style="font-size:13px;margin-top:2px">${exLines.slice(1).join(" ")}</div>` : null}
+            </div>`
+          : null}
+        ${exPending
+          ? html`<div class="ck-muted ck-row" style="justify-content:center;gap:6px;font-size:12px;margin-top:6px">
+              <${Icon} name="loader" size=${14} /> Writing an example…
+            </div>`
+          : null}
+        ${ex?.error && !exPending
+          ? html`<div class="ck-caption" style="text-align:center;margin-top:6px;color:var(--ck-danger,#f85149)">${ex.error}</div>`
+          : null}
+        <div style="text-align:center;margin-top:8px">
+          <button
+            class="ck-btn ck-btn-sm"
+            disabled=${exPending}
+            onClick=${() => invoke("request_example", { word: card.front, back: card.back, code: course.code }).catch(() => {})}
+          >
+            <${Icon} name="sparkles" size=${14} />
+            ${exPending ? "Thinking…" : exLines.length ? "Another example" : "AI example"}
+          </button>
+        </div>
+      </div>
 
       <div class="lt-dots">
         ${lesson.cards.map((_, i) => html`<span key=${i} class=${`lt-dot ${i === idx ? "on" : i < idx ? "seen" : ""}`}></span>`)}
@@ -485,7 +521,7 @@ function App({ state, invoke, connected }) {
         ? html`<${LanguagePicker} invoke=${invoke} hasCourses=${hasCourses}
             onClose=${() => setPicking(false)} />`
         : mode === "study" && selLesson
-          ? html`<${StudyScreen} course=${course} unit=${selUnit} lesson=${selLesson} invoke=${invoke}
+          ? html`<${StudyScreen} course=${course} unit=${selUnit} lesson=${selLesson} examples=${state.examples ?? {}} invoke=${invoke}
               onBack=${() => { setMode("home"); setSel(null); }}
               onQuiz=${() => setMode("quiz")} />`
           : mode === "quiz" && selLesson

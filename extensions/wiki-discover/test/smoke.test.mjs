@@ -277,6 +277,30 @@ try {
     assert.equal(s.current.imagesError, true);
     assert.notEqual(s.current.imagesLoaded, true, "stays retryable, not marked loaded");
   });
+
+  // ---- AI summary (host model bridge) --------------------------------------
+  stub = (url) => (isMedia(url) ? json(MEDIA) : json(PAGES));
+  await test("AI: request_summary marks the current article thinking and returns a prompt", async () => {
+    await inv("next_article", {}, "ai"); // loads Galaxy (id "1")
+    const r = await inv("request_summary", {}, "ai");
+    assert.equal(r.id, "1");
+    assert.match(r.prompt, /gist|summary/i);
+    const s = await st("ai");
+    assert.equal(s.current.aiSummaryPending, true);
+  });
+  await test("AI: set_summary stores the gist and clears the pending spinner", async () => {
+    await inv("set_summary", { id: "1", text: "A galaxy is a vast system of stars bound by gravity." }, "ai");
+    const s = await st("ai");
+    assert.match(s.current.aiSummary, /galaxy/i);
+    assert.equal(s.current.aiSummaryPending, false);
+  });
+  await test("AI: a stale set_summary (id mismatch) is ignored", async () => {
+    const r = await inv("set_summary", { id: "999", text: "nope" }, "ai");
+    assert.equal(r.stale, true);
+  });
+  await test("AI: request_summary with no current article throws no_current", async () => {
+    await assert.rejects(inv("request_summary", {}, "ai-empty"), (e) => e.code === "no_current");
+  });
 } finally {
   globalThis.fetch = realFetch;
   await runtime.shutdown();

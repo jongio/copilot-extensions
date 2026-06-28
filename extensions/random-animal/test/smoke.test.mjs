@@ -135,6 +135,43 @@ async function main() {
     assert.deepEqual(after.body.history, []);
   });
 
+  await test("AI: request_ai_fact marks the current animal thinking and returns a prompt", async () => {
+    await action(open.url, "roll", {});
+    const before = await get(open.url, "/state");
+    const id = before.body.current.id;
+    const r = await action(open.url, "request_ai_fact", {});
+    assert.equal(r.status, 200);
+    assert.equal(r.body.result.id, id);
+    assert.match(r.body.result.prompt, /fun fact/i);
+    const after = await get(open.url, "/state");
+    assert.equal(after.body.current.aiFactPending, true);
+  });
+
+  await test("AI: set_ai_fact stores the fact and clears the pending spinner", async () => {
+    const before = await get(open.url, "/state");
+    const id = before.body.current.id;
+    await action(open.url, "set_ai_fact", { id, fact: "Otters keep a favorite rock in a skin pouch." });
+    const after = await get(open.url, "/state");
+    assert.equal(after.body.current.aiFact, "Otters keep a favorite rock in a skin pouch.");
+    assert.equal(after.body.current.aiFactPending, false);
+  });
+
+  await test("AI: a stale write-back (id mismatch) is ignored", async () => {
+    const r = await action(open.url, "set_ai_fact", { id: "not-the-current-id", fact: "nope" });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.result.stale, true);
+  });
+
+  await test("AI: request_ai_fact with no current animal is a clean 400", async () => {
+    await action(open.url, "clear_history", {});
+    // Re-open a fresh domain with no current animal to exercise the guard.
+    const fresh = await runtime.openInstance({ instanceId: "a2", input: { domain: "empty" }, ctx: { instanceId: "a2", input: { domain: "empty" } } });
+    const r = await action(fresh.url, "request_ai_fact", {});
+    assert.equal(r.status, 400);
+    assert.equal(r.body.ok, false);
+    assert.equal(r.body.code, "no_current");
+  });
+
   await test("unknown action returns 400 with a code", async () => {
     const { status, body } = await action(open.url, "nope", {});
     assert.equal(status, 400);

@@ -12,6 +12,7 @@
 
 import { fileURLToPath } from "node:url";
 import { userStore } from "./canvas-kit/storage.mjs";
+import { CanvasKitError } from "./canvas-kit/server.mjs";
 
 const EXT_NAME = "stock-ticker";
 
@@ -120,6 +121,30 @@ async function fetchQuote(symbol, rangeKey) {
   };
 }
 
+// Build a compact, model-friendly snapshot of the watchlist's last-known quotes.
+// Returns { lines, count } where count is the number of symbols with a real
+// price — the AI summary is only meaningful once there's at least one.
+function snapshotForAI(state) {
+  const out = [];
+  let priced = 0;
+  for (const s of state.symbols ?? []) {
+    const q = state.quotes?.[s.symbol];
+    const label = s.alias ? `${s.alias} (${s.symbol})` : s.symbol;
+    if (!q || q.price == null) {
+      out.push(`${label}: ${q?.error ? `error (${q.error})` : "no quote yet"}`);
+      continue;
+    }
+    priced++;
+    const pct = q.changePct != null ? `${q.changePct >= 0 ? "+" : ""}${q.changePct.toFixed(2)}%` : "n/a";
+    const range52 =
+      q.week52Low != null && q.week52High != null
+        ? `, 52w ${q.week52Low.toFixed(2)}-${q.week52High.toFixed(2)}`
+        : "";
+    out.push(`${q.name || label}: ${q.price.toFixed(2)} ${q.currency || "USD"} (${pct} today${range52})`);
+  }
+  return { lines: out.join("; "), count: priced };
+}
+
 export const canvasConfig = {
   id: "stock-ticker",
   displayName: "Stock Ticker",
@@ -153,6 +178,7 @@ export const canvasConfig = {
     quotes: {},
     range: "1d",
     lastRefresh: null,
+    aiSummary: null,
   }),
 
   loadState: async (domainId) => fileFor(domainId).load(null),
@@ -369,6 +395,67 @@ export const canvasConfig = {
           lastRefresh: state.lastRefresh,
           summary: lines.join("\n"),
         };
+      },
+    },
+
+    // ---- AI market summary (canvas-kit 2026-06-27.1 host model) ------------
+    // request_summary marks the card "thinking" and returns a self-contained
+    // prompt built from the last-known quotes; extension.mjs answers it SILENTLY
+    // with the host model (ctx.ai) and writes the prose back via set_summary —
+    // no turn is added to the chat. Needs at least one priced quote, so refresh
+    // first.
+    request_summary: {
+      description: "Ask the AI for a brief plain-English summary of the watchlist's current quotes.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      handler: ({ state, set }) => {
+        const { lines, count } = snapshotForAI(state);
+        if (!count) {
+          throw new CanvasKitError("no_quotes", "Refresh quotes first, then ask for an AI summary.");
+        }
+        set({ ...state, aiSummary: { ...(state.aiSummary ?? {}), pending: true, error: null } });
+        const prompt =
+          `You are a concise markets analyst. Given this stock watchlist snapshot, ` +
+          `write a brief, plain-English read of what is happening today: which names are up or down, ` +
+          `any standouts, and the overall tone. Snapshot: ${lines}. ` +
+          `Output ONLY 2 to 4 short sentences of prose. No headings, no bullet lists, ` +
+          `no buy/sell advice, no disclaimers, and do not use em dashes.`;
+        return { prompt, count };
+      },
+    },
+
+    set_summary: {
+      description: "Store an AI-generated watchlist summary (write-back from the host model).",
+      inputSchema: {
+        type: "object",
+        properties: { text: { type: "string" } },
+        required: ["text"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        const text = String(input?.text ?? "").trim();
+        if (!text) return { empty: true };
+        set({ ...state, aiSummary: { text, pending: false, error: null, at: new Date().toISOString() } });
+        return { ok: true };
+      },
+    },
+
+    fail_summary: {
+      description: "Record that the AI summary could not be produced (clears the pending spinner).",
+      inputSchema: {
+        type: "object",
+        properties: { message: { type: "string" } },
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        set({
+          ...state,
+          aiSummary: {
+            ...(state.aiSummary ?? {}),
+            pending: false,
+            error: String(input?.message ?? "Could not produce a summary."),
+          },
+        });
+        return { ok: true };
       },
     },
   },

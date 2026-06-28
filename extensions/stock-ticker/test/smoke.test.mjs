@@ -141,6 +141,30 @@ async function main() {
     assert.equal(saved.range, "5d");
   });
 
+  await test("AI: set_summary stores prose and clears the pending spinner", async () => {
+    await action(open.url, "set_summary", { text: "Tech names are broadly higher with NVDA leading." });
+    const after = await get(open.url, "/state");
+    assert.equal(after.body.aiSummary.text, "Tech names are broadly higher with NVDA leading.");
+    assert.equal(after.body.aiSummary.pending, false);
+    assert.ok(after.body.aiSummary.at, "records a generated-at timestamp");
+  });
+
+  await test("AI: fail_summary records a retryable error and clears pending", async () => {
+    await action(open.url, "fail_summary", { message: "no session" });
+    const after = await get(open.url, "/state");
+    assert.equal(after.body.aiSummary.pending, false);
+    assert.equal(after.body.aiSummary.error, "no session");
+  });
+
+  await test("AI: request_summary with no priced quotes is a clean 400 no_quotes", async () => {
+    // Fresh domain: default symbols but no quotes fetched (no network in tests).
+    const fresh = await runtime.openInstance({ instanceId: "s2", input: { domain: "empty" }, ctx: { instanceId: "s2", input: { domain: "empty" } } });
+    const r = await action(fresh.url, "request_summary", {});
+    assert.equal(r.status, 400);
+    assert.equal(r.body.ok, false);
+    assert.equal(r.body.code, "no_quotes");
+  });
+
   await test("unknown action returns 400 with a code", async () => {
     const { status, body } = await action(open.url, "nope", {});
     assert.equal(status, 400);

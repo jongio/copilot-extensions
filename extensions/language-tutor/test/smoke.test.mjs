@@ -132,6 +132,36 @@ async function main() {
     assert.equal(saved.profile.name, "Smoke Tester");
   });
 
+  await test("AI: request_example marks the word thinking and returns a key + prompt", async () => {
+    const st = (await get(open.url, "/state")).body;
+    const code = st.activeLanguage;
+    const card = st.courses[code].units[0].lessons[0].cards[0];
+    const r = await action(open.url, "request_example", { word: card.front, back: card.back, code });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.result.key, `${code}::${card.front.toLowerCase()}`);
+    assert.match(r.body.result.prompt, /example sentence/i);
+    const after = await get(open.url, "/state");
+    assert.equal(after.body.examples[r.body.result.key].pending, true);
+  });
+
+  await test("AI: set_example stores the sentence and clears the pending spinner", async () => {
+    const st = (await get(open.url, "/state")).body;
+    const code = st.activeLanguage;
+    const card = st.courses[code].units[0].lessons[0].cards[0];
+    const key = `${code}::${card.front.toLowerCase()}`;
+    await action(open.url, "set_example", { key, text: "Hola, ¿cómo estás?\nHi, how are you?" });
+    const after = await get(open.url, "/state");
+    assert.match(after.body.examples[key].text, /Hola/);
+    assert.equal(after.body.examples[key].pending, false);
+  });
+
+  await test("AI: request_example with no word is a clean 400 no_word", async () => {
+    const r = await action(open.url, "request_example", { word: "   " });
+    assert.equal(r.status, 400);
+    assert.equal(r.body.ok, false);
+    assert.equal(r.body.code, "no_word");
+  });
+
   await test("unknown action returns 400 with a code", async () => {
     const { status, body } = await action(open.url, "nope", {});
     assert.equal(status, 400);

@@ -3,6 +3,7 @@
 import { fileURLToPath } from "node:url";
 import { userStore } from "./canvas-kit/storage.mjs";
 import { nid } from "./canvas-kit/format.mjs";
+import { CanvasKitError } from "./canvas-kit/server.mjs";
 
 const EXT_NAME = "random-animal";
 
@@ -85,6 +86,65 @@ export const canvasConfig = {
       },
     },
 
+    // ---- AI fun fact (canvas-kit 2026-06-27.1 host model) ------------------
+    // The canvas marks the current animal "thinking" and returns a self-contained
+    // prompt; extension.mjs answers it SILENTLY with the host model (ctx.ai) and
+    // writes the result back via set_ai_fact — no turn is added to the chat. The
+    // animal id ties a late answer to the animal that asked, so rolling again
+    // mid-flight can't mislabel the fact.
+    request_ai_fact: {
+      description: "Ask the AI for one more surprising fun fact about the current animal.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      handler: ({ state, set }) => {
+        const cur = state.current;
+        if (!cur) throw new CanvasKitError("no_current", "Roll an animal first.");
+        set({ ...state, current: { ...cur, aiFactPending: true, aiFactError: null } });
+        const prompt =
+          `You are a zoologist sharing surprising, true animal trivia. ` +
+          `Give ONE fascinating, lesser-known fun fact about the ${cur.name} (${cur.emoji}). ` +
+          `Do not repeat this known fact: "${cur.fact}". ` +
+          `Output ONLY the fact as a single sentence under 30 words. ` +
+          `No preamble, no "Did you know", no quotes, and do not use em dashes.`;
+        return { id: cur.id, name: cur.name, prompt };
+      },
+    },
+
+    set_ai_fact: {
+      description: "Store an AI-generated fun fact for an animal (write-back from the host model).",
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "string" }, fact: { type: "string" } },
+        required: ["id", "fact"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        const cur = state.current;
+        const fact = String(input?.fact ?? "").trim();
+        if (!cur || cur.id !== input?.id) return { stale: true };
+        set({ ...state, current: { ...cur, aiFact: fact, aiFactPending: false, aiFactError: null } });
+        return { ok: true };
+      },
+    },
+
+    fail_ai_fact: {
+      description: "Record that the AI fun fact could not be fetched (clears the pending spinner).",
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "string" }, message: { type: "string" } },
+        required: ["id"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        const cur = state.current;
+        if (!cur || cur.id !== input?.id) return { stale: true };
+        set({
+          ...state,
+          current: { ...cur, aiFactPending: false, aiFactError: String(input?.message ?? "Could not fetch a fact.") },
+        });
+        return { ok: true };
+      },
+    },
+
     get_current: {
       description: "Return the current animal (for the agent).",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
@@ -93,6 +153,7 @@ export const canvasConfig = {
         return {
           animal: `${state.current.emoji} ${state.current.name}`,
           fact: state.current.fact,
+          ...(state.current.aiFact ? { aiFact: state.current.aiFact } : {}),
         };
       },
     },

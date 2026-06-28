@@ -8,6 +8,7 @@
 import { fileURLToPath } from "node:url";
 import { userStore } from "./canvas-kit/storage.mjs";
 import { nid } from "./canvas-kit/format.mjs";
+import { CanvasKitError } from "./canvas-kit/server.mjs";
 import { buildCourse, catalogLanguages, resolveLanguageKey } from "./catalog.mjs";
 
 const EXT_NAME = "language-tutor";
@@ -51,7 +52,14 @@ function createInitialState() {
     profile: freshProfile(),
     activeLanguage: null,
     courses: {},
+    examples: {}, // `${code}::${word}` -> { text, pending, error, at } — AI usage examples
   };
+}
+
+// Stable key for an AI usage example: language code + the target word/phrase, so
+// an example survives reloads and is shared across every lesson that word is in.
+function exampleKey(code, word) {
+  return `${String(code ?? "")}::${String(word ?? "").trim().toLowerCase()}`;
 }
 
 // Find a course + unit + lesson, tolerating missing pieces.
@@ -364,6 +372,86 @@ export const canvasConfig = {
       handler: ({ set }) => {
         set(createInitialState());
         return { status: "Progress reset — fresh start! 🌱" };
+      },
+    },
+
+    // ---- AI usage example (canvas-kit 2026-06-27.1 host model) -------------
+    // request_example marks a flashcard's word "thinking" and returns a prompt;
+    // extension.mjs answers it SILENTLY with the host model (ctx.ai) and writes
+    // the example sentence (+ translation) back via set_example — no turn is
+    // added to the chat. Keyed by language + word so it is shared across lessons.
+    request_example: {
+      description: "Ask the AI for a natural example sentence using a flashcard's word, with a translation.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          word: { type: "string", description: "The target-language word/phrase (card front)." },
+          back: { type: "string", description: "Optional English meaning (card back) for context." },
+          code: { type: "string", description: "Language code. Defaults to the active language." },
+        },
+        required: ["word"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        const word = String(input?.word ?? "").trim();
+        if (!word) throw new CanvasKitError("no_word", "No word to build an example from.");
+        const code = String(input?.code ?? state.activeLanguage ?? "").trim();
+        const course = state.courses?.[code];
+        const langName = course?.name || code || "the target language";
+        const key = exampleKey(code, word);
+        const examples = { ...(state.examples ?? {}) };
+        examples[key] = { ...(examples[key] ?? {}), pending: true, error: null };
+        set({ ...state, examples });
+        const back = String(input?.back ?? "").trim();
+        const meaning = back ? ` (it means "${back}")` : "";
+        const prompt =
+          `You are a friendly ${langName} tutor. ` +
+          `Use the ${langName} word or phrase "${word}"${meaning} in ONE short, natural example sentence. ` +
+          `Then give its English translation. ` +
+          `Output ONLY two lines: first the ${langName} sentence, then its English translation. ` +
+          `No labels, no preamble, no quotes, no pronunciation guide, and do not use em dashes.`;
+        return { key, word, code, prompt };
+      },
+    },
+
+    set_example: {
+      description: "Store an AI-generated usage example for a word (write-back from the host model).",
+      inputSchema: {
+        type: "object",
+        properties: { key: { type: "string" }, text: { type: "string" } },
+        required: ["key", "text"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        const key = String(input?.key ?? "");
+        const text = String(input?.text ?? "").trim();
+        if (!key || !text) return { empty: true };
+        const examples = { ...(state.examples ?? {}) };
+        examples[key] = { text, pending: false, error: null, at: new Date().toISOString() };
+        set({ ...state, examples });
+        return { ok: true };
+      },
+    },
+
+    fail_example: {
+      description: "Record that an AI example could not be generated (clears the pending spinner).",
+      inputSchema: {
+        type: "object",
+        properties: { key: { type: "string" }, message: { type: "string" } },
+        required: ["key"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        const key = String(input?.key ?? "");
+        if (!key) return { ok: true };
+        const examples = { ...(state.examples ?? {}) };
+        examples[key] = {
+          ...(examples[key] ?? {}),
+          pending: false,
+          error: String(input?.message ?? "Could not generate an example."),
+        };
+        set({ ...state, examples });
+        return { ok: true };
       },
     },
 
