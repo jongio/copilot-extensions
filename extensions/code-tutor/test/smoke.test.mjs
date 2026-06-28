@@ -4,7 +4,7 @@
 // Run:  node test/smoke.test.mjs   (or via scripts/run-tests.mjs)
 
 import assert from "node:assert/strict";
-import { mkdtemp, rm, readFile, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, mkdir, writeFile, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -247,6 +247,37 @@ try {
     assert.equal(s.questions.find((q) => q.id === qid).answer, "you may touch every element.");
   });
 
+  // ---- request_explanation flow (canvas -> session model bridge) -----------
+  await test("request_explanation marks the level pending and returns a prompt", async () => {
+    const r = await post(open.url, "request_explanation", { topicId, level: "eli5" });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.result.topicId, topicId);
+    assert.equal(r.body.result.level, "eli5");
+    assert.ok(/explain/i.test(r.body.result.prompt), "returns an explain prompt for the host");
+    const s = await getState(open.url);
+    const t = s.topics.find((x) => x.id === topicId);
+    assert.equal(t.explaining?.level, "eli5", "the level is flagged as being explained");
+  });
+
+  await test("set_explanation clears the pending explaining marker for that level", async () => {
+    await post(open.url, "request_explanation", { topicId, level: "eli5" });
+    await post(open.url, "set_explanation", { topicId, level: "eli5", text: "It checks each item one by one." });
+    const s = await getState(open.url);
+    const t = s.topics.find((x) => x.id === topicId);
+    assert.equal(t.explaining, null, "explaining is cleared once the answer lands");
+    assert.equal(t.explanations.eli5, "It checks each item one by one.");
+  });
+
+  await test("fail_explanation clears pending and records a retryable error", async () => {
+    await post(open.url, "request_explanation", { topicId, level: "wizard" });
+    await post(open.url, "fail_explanation", { topicId, level: "wizard", message: "no session" });
+    const s = await getState(open.url);
+    const t = s.topics.find((x) => x.id === topicId);
+    assert.equal(t.explaining, null);
+    assert.equal(t.explainError?.level, "wizard");
+    assert.equal(t.explainError?.message, "no session");
+  });
+
   // ---- read_snippet (expand a code reference) ------------------------------
   await test("read_snippet returns windowed source lines within the codebase root", async () => {
     await post(open.url, "set_codebase", { label: "demo-repo", root: EXT }); // EXT contains canvas.mjs
@@ -415,6 +446,39 @@ try {
     assert.equal(s.codebase, null);
     assert.equal(s.domain, "rst", "domain preserved");
     assert.equal(s.defaultLevel, "wizard", "reading level preserved across reset");
+  });
+
+  // ---- no-domain open falls back to the most recent NON-EMPTY board -------
+  await test("opening with no domain resolves to the most recent non-empty board", async () => {
+    const f = join(artifactsDir, "zzz-recent.json");
+    await writeFile(
+      f,
+      JSON.stringify({
+        domain: "zzz-recent",
+        defaultLevel: "engineer",
+        codebase: { label: "Recent Repo" },
+        findings: [],
+        questions: [],
+        topics: [{ id: "rt", title: "Recent Topic", category: "theory", summary: "", status: "new", explanations: {} }],
+      })
+    );
+    // An EMPTY board written even more recently must NOT win (this is the bug a
+    // prior no-domain open caused: it leaves an empty default.json as newest).
+    const emptyNewer = join(artifactsDir, "default.json");
+    await writeFile(emptyNewer, JSON.stringify({ domain: "default", defaultLevel: "engineer", codebase: null, findings: [], questions: [], topics: [] }));
+    const recent = new Date(Date.now() + 60000);
+    const newer = new Date(Date.now() + 120000);
+    await utimes(f, recent, recent);
+    await utimes(emptyNewer, newer, newer); // newer, but empty -> skipped
+
+    const anon = await runtime.openInstance({
+      instanceId: "anon",
+      input: {},
+      ctx: { instanceId: "anon", input: {} },
+    });
+    const s = await getState(anon.url);
+    assert.equal(s.domain, "zzz-recent", "no-domain open picks the newest non-empty board, skipping empty default");
+    assert.ok(s.topics.some((t) => t.title === "Recent Topic"), "loads that board's topics");
   });
 
   // ---- legacy migration on a separate, pre-seeded board --------------------

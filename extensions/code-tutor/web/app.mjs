@@ -54,14 +54,59 @@ const FIX_COLOR = { open: "var(--ck-muted)", requested: "var(--ck-attention)", d
 const REFRESH_PROMPT =
   "Refresh the Code Tutor analysis for this codebase: open the Code Tutor canvas, call analysis_status to see what changed, re-read the relevant source, then call set_codebase to refresh the fingerprint and add or update topics, code references, and findings to match the current code.";
 
-function copy(text) {
+async function copy(text) {
   try {
-    navigator.clipboard?.writeText(text);
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
   } catch {
-    /* clipboard unavailable; non-fatal */
+    /* clipboard API blocked in this webview; fall back below */
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
   }
 }
 const refString = (r) => `${r.file}${r.startLine ? `:${r.startLine}${r.endLine && r.endLine !== r.startLine ? `-${r.endLine}` : ""}` : ""}`;
+
+// A copy button that confirms the click: it swaps to a check + "Copied" for a
+// moment so the action is visibly acknowledged (clipboard writes are otherwise
+// silent). Pass `label` for a text button, omit it for an icon-only button.
+function CopyButton({ text, label, title, cls = "ck-btn ck-btn-sm", iconSize = 13, ariaLabel }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  async function onClick(e) {
+    e.stopPropagation();
+    const ok = await copy(text);
+    if (!ok) return;
+    setCopied(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(false), 1400);
+  }
+  return html`
+    <button
+      type="button"
+      class=${cls + (copied ? " is-copied" : "")}
+      title=${copied ? "Copied" : title}
+      aria-label=${(ariaLabel ?? title ?? label) + (copied ? " (copied)" : "")}
+      onClick=${onClick}
+    >
+      <${Icon} name=${copied ? "check" : "copy"} size=${iconSize} />${label ? (copied ? "Copied" : label) : ""}
+    </button>
+  `;
+}
 
 // ---- small presentational helpers -----------------------------------------
 function Pill({ color, icon, children }) {
@@ -155,9 +200,20 @@ function LevelSlider({ value, onCommit, onPreview, label, compact }) {
         ? null
         : html`<div class="cs-scale">
             ${LEVELS.map(
-              (l, i) => html`<span key=${l} class=${"cs-tick" + (i === idx ? " cs-tick-on" : "")}>
+              (l, i) => html`<button
+                key=${l}
+                type="button"
+                class=${"cs-tick" + (i === idx ? " cs-tick-on" : "")}
+                aria-label=${`Set reading level to ${LEVEL_LABEL[l]}`}
+                aria-pressed=${String(i === idx)}
+                onClick=${() => {
+                  setIdx(i);
+                  onPreview?.(LEVELS[i]);
+                  onCommit(LEVELS[i]);
+                }}
+              >
                 <${Icon} name=${LEVEL_ICON[l]} size=${11} />${LEVEL_LABEL[l]}
-              </span>`
+              </button>`
             )}
           </div>`}
     </div>
@@ -287,6 +343,31 @@ function CodeRefs({ refs, invoke }) {
 }
 
 // ---- per-topic Q&A ---------------------------------------------------------
+// Live "the tutor is thinking" indicator. The host model call is a real round
+// trip (often 10-60s on a reasoning model), so a static spinner reads as frozen.
+// A ticking elapsed counter gives constant, honest progress and survives both
+// re-renders and a brief host park-behind-screenshot. `since` is an ISO start
+// time already in shared state (question.createdAt / topic.explaining.at).
+function Thinking({ since, label = "The tutor is thinking", size = 14 }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const start = since ? new Date(since).getTime() : now;
+  const secs = Number.isFinite(start) ? Math.max(0, Math.round((now - start) / 1000)) : 0;
+  const hint =
+    secs >= 45 ? "the session may be busy, still trying" :
+    secs >= 25 ? "almost there" :
+    secs >= 12 ? "still working" :
+    "thinking";
+  return html`<div class="cs-pending">
+    <${Icon} name="loader-circle" class="ck-spinner" size=${size} />
+    <span>${label}…</span>
+    <span class="ck-caption cs-think-meta">${hint} · ${secs}s</span>
+  </div>`;
+}
+
 function TopicQA({ topic, level, questions, invoke }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -317,7 +398,7 @@ function TopicQA({ topic, level, questions, invoke }) {
               </div>
               ${q.answer
                 ? html`<div class="cs-a-text">${q.answer}</div>`
-                : html`<div class="cs-pending"><${Icon} name="loader-circle" class="ck-spinner" size=${13} />Waiting for the tutor…</div>`}
+                : html`<${Thinking} since=${q.createdAt} size=${13} />`}
             </div>
           `
         )}
@@ -328,6 +409,7 @@ function TopicQA({ topic, level, questions, invoke }) {
             value=${text}
             rows="2"
             onInput=${(e) => setText(e.target.value)}
+            onKeyDown=${(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); ask(); } }}
           ></textarea>
           <div class="ck-row">
             <button class="ck-btn ck-btn-sm ck-btn-primary" disabled=${!text.trim() || busy} onClick=${ask}>
@@ -375,29 +457,28 @@ function TopicCard({ topic, level, questions, open, onToggle, invoke }) {
                       : null}
                     <div class="cs-prose">${explanation}</div>
                   </div>`
-                : html`
-                    <div class="ck-callout">
-                      <${Icon} name="info" size=${16} />
+                : (() => {
+                    const explaining = topic.explaining?.level === level;
+                    const err = topic.explainError?.level === level ? topic.explainError.message : null;
+                    const getIt = async () => {
+                      const r = await invoke("fill_from_cache", { topicId: topic.id, level });
+                      if (!r?.hit) await invoke("request_explanation", { topicId: topic.id, level });
+                    };
+                    if (explaining) {
+                      return html`<div class="ck-callout">
+                        <${Thinking} since=${topic.explaining?.at} label=${`Asking the tutor for a ${LEVEL_LABEL[level]} explanation`} size=${16} />
+                      </div>`;
+                    }
+                    return html`<div class="ck-callout">
+                      <${Icon} name=${err ? "triangle-alert" : "info"} size=${16} />
                       <span>
-                        No ${LEVEL_LABEL[level]} explanation yet.
-                        <button
-                          class="ck-btn ck-btn-sm"
-                          style="margin-left:8px"
-                          onClick=${async () => {
-                            const r = await invoke("fill_from_cache", { topicId: topic.id, level });
-                            if (!r?.hit)
-                              await invoke("ask_question", {
-                                topicId: topic.id,
-                                level,
-                                text: `Explain "${topic.title}" at the ${LEVEL_LABEL[level]} level.`,
-                              });
-                          }}
-                        >
-                          <${Icon} name="sparkles" size=${13} />Get this explanation
+                        ${err ? err : html`No ${LEVEL_LABEL[level]} explanation yet.`}
+                        <button class="ck-btn ck-btn-sm" style="margin-left:8px" onClick=${getIt}>
+                          <${Icon} name=${err ? "refresh-cw" : "sparkles"} size=${13} />${err ? "Try again" : "Get this explanation"}
                         </button>
                       </span>
-                    </div>
-                  `}
+                    </div>`;
+                  })()}
 
               ${topic.keyPoints?.length
                 ? html`
@@ -685,7 +766,7 @@ function QuestionsTab({ state, invoke }) {
                   </div>
                   ${q.answer
                     ? html`<div class="cs-a-text">${q.answer}</div>`
-                    : html`<div class="cs-pending"><${Icon} name="loader-circle" class="ck-spinner" size=${13} />Waiting for the tutor…</div>`}
+                    : html`<${Thinking} since=${q.createdAt} size=${13} />`}
                 </div>
               `
             )}
@@ -775,7 +856,7 @@ function Header({ state, connected, analysis, onRefresh, level, onLevelPreview, 
       <${LevelPanel}
         level=${level}
         label="Reading level"
-        sub="One level for the whole course. Slide to re-explain every topic."
+        sub="Sets how deep every explanation goes, from ELI5 to Wizard. Drag it and each topic re-explains itself at that level."
         onPreview=${onLevelPreview}
         onCommit=${onLevelCommit}
       />
@@ -821,17 +902,34 @@ function App({ state, invoke, connected }) {
   useEffect(() => setPreview(null), [committedLevel]);
 
   // Stick the compact bar once the sentinel (placed just below the full slider)
-  // scrolls above the viewport top.
+  // scrolls above the top. We measure on scroll/resize with getBoundingClientRect
+  // rather than using an IntersectionObserver on a 1px sentinel: a viewport-rooted
+  // IO never fires when the canvas scrolls an INNER container (as the native host
+  // webview can) instead of the window, and a 1px target is fragile under
+  // fractional device-pixel ratios. A capture-phase scroll listener catches
+  // scrolling on any ancestor container; rAF throttles the measurement.
   const ready = !!state;
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(
-      ([e]) => setStuck(!e.isIntersecting && e.boundingClientRect.top <= 0),
-      { threshold: 0 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
+    if (!el) return;
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      setStuck(el.getBoundingClientRect().top <= 0);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(measure);
+    };
+    measure(); // initial state (e.g. restored scroll position)
+    // Capture phase + passive so we observe scroll from the window OR any inner
+    // scroll container (scroll events don't bubble, but capture sees them).
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll, { capture: true });
+      window.removeEventListener("resize", onScroll);
+    };
   }, [ready]);
 
   if (!state) return html`<div class="cs-app"><p class="ck-muted">Loading curriculum…</p></div>`;

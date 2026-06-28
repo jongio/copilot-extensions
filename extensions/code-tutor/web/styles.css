@@ -111,8 +111,19 @@ button.cs-chip:hover { border-color: var(--ck-accent); color: var(--ck-fg); }
 }
 .cs-slider input[type="range"]:focus-visible { outline: 2px solid var(--ck-focus); outline-offset: 2px; }
 .cs-scale { display: flex; justify-content: space-between; }
-.cs-tick { font-size: 10px; color: var(--ck-muted); display: flex; align-items: center; gap: 3px; }
+.cs-tick {
+  font-size: 10px; color: var(--ck-muted);
+  display: flex; align-items: center; gap: 3px;
+  background: none; border: 0; padding: 4px 6px; margin: 0 -6px;
+  cursor: pointer; border-radius: var(--r-sm); font-family: inherit;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.cs-tick:first-child { margin-left: -6px; }
+.cs-tick:last-child { margin-right: -6px; }
+.cs-tick:hover { color: var(--ck-fg); background: var(--ck-bg-muted); }
+.cs-tick:focus-visible { outline: 2px solid var(--ck-accent); outline-offset: 1px; }
 .cs-tick-on { color: var(--lvl); font-weight: var(--ck-fw-semibold); }
+.cs-tick-on:hover { color: var(--lvl); }
 /* compact variant (sticky bar): thinner track, smaller thumb, no labels */
 .cs-slider.compact input[type="range"] { height: 5px; margin: 0; }
 .cs-slider.compact input[type="range"]::-webkit-slider-thumb { width: 14px; height: 14px; border-width: 2px; }
@@ -269,6 +280,7 @@ button.cs-chip:hover { border-color: var(--ck-accent); color: var(--ck-fg); }
 .cs-q-text .cs-ico { color: var(--ck-accent); margin-top: 2px; flex: none; }
 .cs-a-text { margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--ck-border-muted); white-space: pre-wrap; line-height: 1.55; font-size: var(--fs-body); }
 .cs-pending { color: var(--ck-attention); display: inline-flex; align-items: center; gap: 6px; margin-top: 7px; font-size: var(--fs-xs); }
+.cs-think-meta { font-variant-numeric: tabular-nums; opacity: 0.8; }
 .cs-ask { display: flex; flex-direction: column; gap: 6px; }
 
 /* ---- findings ------------------------------------------------------------ */
