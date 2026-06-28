@@ -408,6 +408,57 @@ function SkeletonCard() {
   </div>`;
 }
 
+// AI TL;DR of the currently visible headlines. The summary text + pending/error
+// flags are SHARED state (set by the host model via set_digest); the only local
+// state is a transient client-side error for a synchronous request rejection.
+function Digest({ digest, lastRefresh, hasArticles, invoke }) {
+  const [localErr, setLocalErr] = useState("");
+  const pending = !!digest?.pending;
+  const text = digest?.text;
+  const error = digest?.error || localErr;
+  const stale = !!(text && digest?.refreshToken && digest.refreshToken !== lastRefresh);
+
+  async function run() {
+    setLocalErr("");
+    try {
+      await invoke("request_digest", {});
+    } catch (e) {
+      setLocalErr(e?.message || "Could not summarize.");
+    }
+  }
+
+  // Don't advertise the feature until there are headlines to summarize — unless a
+  // digest already exists, in which case keep showing it.
+  if (!hasArticles && !text && !pending && !error) return null;
+
+  const hasBody = pending || text || error;
+  return html`
+    <div class="ck-card na-digest" style="margin-bottom:10px;padding:12px 14px">
+      <div class="ck-spread" style=${hasBody ? "margin-bottom:8px" : ""}>
+        <div class="ck-row" style="gap:6px;min-width:0">
+          <${Icon} name="sparkles" size=${16} />
+          <strong>AI digest</strong>
+          ${digest?.label ? html`<span class="ck-caption ck-muted">${digest.label}</span>` : null}
+        </div>
+        <button class="ck-btn ck-btn-sm" disabled=${pending} onClick=${run} title="Summarize these headlines with AI">
+          <${Icon} name=${pending ? "loader" : "sparkles"} size=${14} />
+          ${pending ? "Thinking…" : text ? "Regenerate" : "Summarize"}
+        </button>
+      </div>
+      ${pending && !text ? html`<p class="ck-muted" style="margin:0;font-size:13px">Reading the headlines…</p>` : null}
+      ${text ? html`<p class="ck-muted" style="margin:0;font-size:13px;line-height:1.55">${text}</p>` : null}
+      ${error && !pending ? html`<p class="ck-caption" style="margin:6px 0 0;color:var(--ck-danger,#f85149)">${error}</p>` : null}
+      ${stale && !pending
+        ? html`<div class="ck-caption ck-muted" style="margin-top:6px">
+            <${Icon} name="info" size=${12} /> Headlines updated since this digest — regenerate for the latest.
+          </div>`
+        : text && digest?.at
+        ? html`<div class="ck-caption ck-muted" style="margin-top:6px">Generated ${relativeTime(digest.at)}</div>`
+        : null}
+    </div>
+  `;
+}
+
 function App({ state, invoke, connected }) {
   const [tab, setTab] = useState(null); // "topics" | "search"
   const [sort, setSort] = useState("new");
@@ -604,6 +655,15 @@ function App({ state, invoke, connected }) {
         ? html`<div class="ck-callout ck-error" style="margin-bottom:10px">
             <${Icon} name="circle-x" size=${16} /><span>${state.error}</span>
           </div>`
+        : null}
+
+      ${view === "feed"
+        ? html`<${Digest}
+            digest=${state.digest}
+            lastRefresh=${state.lastRefresh}
+            hasArticles=${base.length > 1}
+            invoke=${invoke}
+          />`
         : null}
 
       <div class="na-list">

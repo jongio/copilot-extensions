@@ -142,6 +142,30 @@ async function main() {
     assert.equal(saved.autoRefreshSec, 60);
   });
 
+  await test("AI: request_digest with no headlines is a clean 400 no_articles", async () => {
+    // The feed starts empty (no network in tests), so the guard should fire.
+    const r = await action(open.url, "request_digest", {});
+    assert.equal(r.status, 400);
+    assert.equal(r.body.ok, false);
+    assert.equal(r.body.code, "no_articles");
+  });
+
+  await test("AI: set_digest stores the TL;DR and clears the pending spinner", async () => {
+    await action(open.url, "set_digest", { text: "Rates hold; markets steady into the close." });
+    const after = await get(open.url, "/state");
+    assert.equal(after.body.digest.text, "Rates hold; markets steady into the close.");
+    assert.equal(after.body.digest.pending, false);
+    assert.ok(after.body.digest.at, "records a generated-at timestamp");
+  });
+
+  await test("AI: fail_digest records a retryable error but keeps prior text", async () => {
+    await action(open.url, "fail_digest", { message: "no session" });
+    const after = await get(open.url, "/state");
+    assert.equal(after.body.digest.pending, false);
+    assert.equal(after.body.digest.error, "no session");
+    assert.equal(after.body.digest.text, "Rates hold; markets steady into the close.");
+  });
+
   await test("unknown action returns 400 with a code", async () => {
     const { status, body } = await action(open.url, "nope", {});
     assert.equal(status, 400);

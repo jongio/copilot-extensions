@@ -19,6 +19,7 @@
 
 import { fileURLToPath } from "node:url";
 import { userStore } from "./canvas-kit/storage.mjs";
+import { CanvasKitError } from "./canvas-kit/server.mjs";
 
 const EXT_NAME = "wiki-discover";
 
@@ -586,6 +587,76 @@ export const canvasConfig = {
           });
           return { ok: true, count: 0, error: String(err?.message ?? err) };
         }
+      },
+    },
+
+    // ---- AI explainer (canvas-kit 2026-06-27.1 host model) ----------------
+    // request_summary marks the current article "thinking" and returns a prompt
+    // built from its extract; extension.mjs answers it SILENTLY with the host
+    // model (ctx.ai) and writes the plain-English gist back via set_summary — no
+    // turn is added to the chat. Tied to the article id (like load_images) so a
+    // late answer can't land on an article the reader already advanced past.
+    request_summary: {
+      description: "Ask the AI for a 1 to 2 sentence plain-English gist of the current article.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      handler: ({ state, set }) => {
+        const cur = state.current;
+        if (!cur) throw new CanvasKitError("no_current", "Load an article first.");
+        set((s) => (s.current ? { ...s, current: { ...s.current, aiSummaryPending: true, aiSummaryError: null } } : s));
+        const extract = String(cur.extract || cur.description || "").slice(0, 800);
+        const prompt =
+          `You are a concise explainer. In 1 to 2 plain-English sentences, give the gist of this ` +
+          `Wikipedia topic and why it is interesting. Topic: "${cur.title}". Extract: ${extract} ` +
+          `Output ONLY the summary as plain prose. No preamble, no headings, no quotes, ` +
+          `and do not use em dashes.`;
+        return { id: cur.id, title: cur.title, prompt };
+      },
+    },
+
+    set_summary: {
+      description: "Store an AI-generated article summary (write-back from the host model).",
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "string" }, text: { type: "string" } },
+        required: ["id", "text"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        const text = String(input?.text ?? "").trim();
+        if (!state.current || String(state.current.id) !== String(input?.id)) return { stale: true };
+        if (!text) return { empty: true };
+        set((s) =>
+          s.current && String(s.current.id) === String(input.id)
+            ? { ...s, current: { ...s.current, aiSummary: text, aiSummaryPending: false, aiSummaryError: null } }
+            : s,
+        );
+        return { ok: true };
+      },
+    },
+
+    fail_summary: {
+      description: "Record that the AI summary could not be produced (clears the pending spinner).",
+      inputSchema: {
+        type: "object",
+        properties: { id: { type: "string" }, message: { type: "string" } },
+        required: ["id"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        if (!state.current || String(state.current.id) !== String(input?.id)) return { stale: true };
+        set((s) =>
+          s.current && String(s.current.id) === String(input.id)
+            ? {
+                ...s,
+                current: {
+                  ...s.current,
+                  aiSummaryPending: false,
+                  aiSummaryError: String(input?.message ?? "Could not summarize this article."),
+                },
+              }
+            : s,
+        );
+        return { ok: true };
       },
     },
 

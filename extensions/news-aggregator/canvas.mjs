@@ -14,6 +14,7 @@
 
 import { fileURLToPath } from "node:url";
 import { userStore } from "./canvas-kit/storage.mjs";
+import { CanvasKitError } from "./canvas-kit/server.mjs";
 
 const EXT_NAME = "news-aggregator";
 
@@ -283,6 +284,21 @@ function setMark(state, id, patch, article) {
   return { ...state, marks };
 }
 
+// ---- AI digest helpers ----------------------------------------------------
+// The visible feed (hidden articles excluded) and a human label for it. Used to
+// build the AI TL;DR prompt and to tie a digest to the headline set it summarized.
+function visibleArticles(state) {
+  return (state.articles ?? []).filter((a) => !state.marks?.[a.id]?.hidden);
+}
+function currentFeedLabel(state) {
+  const pin = (state.pinnedTopics ?? []).find((p) => p.id === state.activeId);
+  return state.mode === "search"
+    ? `“${state.query || "search"}”`
+    : pin
+    ? pin.label
+    : labelForTopic(state.activeId);
+}
+
 export const canvasConfig = {
   id: "news-aggregator",
   displayName: "News Aggregator",
@@ -320,6 +336,7 @@ export const canvasConfig = {
     marks: {}, // id -> { id,title,link,source,sourceHost,publishedAt, saved,favorite,hidden, ...At }
     searchHistory: [], // [{ query, at }]
     pinnedTopics: [], // [{ id,label,query,icon,createdAt }]
+    digest: null, // { text, pending, error, label, at, refreshToken } — AI TL;DR of the current feed
   }),
 
   loadState: async (domainId) => fileFor(domainId).load(null),
@@ -602,6 +619,75 @@ export const canvasConfig = {
         );
         set({ ...state, searchHistory });
         return { remaining: searchHistory.length };
+      },
+    },
+
+    // ---- AI digest (canvas-kit 2026-06-27.1 host model) -------------------
+    // request_digest marks the digest card "thinking" and returns a prompt built
+    // from the currently visible headlines; extension.mjs answers it SILENTLY
+    // with the host model (ctx.ai) and writes the TL;DR back via set_digest —
+    // no turn is added to the chat. The refreshToken (the feed's lastRefresh at
+    // request time) lets the UI tell when the digest is stale vs. the live feed.
+    request_digest: {
+      description: "Ask the AI for a 2 to 3 sentence TL;DR of the currently visible headlines.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      handler: ({ state, set }) => {
+        const arts = visibleArticles(state).slice(0, 15);
+        if (arts.length < 2) {
+          throw new CanvasKitError("no_articles", "Load some headlines first, then ask for a digest.");
+        }
+        const label = currentFeedLabel(state);
+        set({
+          ...state,
+          digest: { ...(state.digest ?? {}), pending: true, error: null, label, refreshToken: state.lastRefresh ?? null },
+        });
+        const list = arts.map((a, i) => `${i + 1}. ${a.title}${a.source ? ` (${a.source})` : ""}`).join("\n");
+        const prompt =
+          `You are a news editor writing a quick briefing. ` +
+          `Here are the current ${label} headlines:\n${list}\n\n` +
+          `Write a 2 to 3 sentence TL;DR of the main themes and the single most important story. ` +
+          `Output ONLY the briefing as plain prose. No headings, no bullet lists, no links, ` +
+          `no preamble, and do not use em dashes.`;
+        return { prompt, label, count: arts.length };
+      },
+    },
+
+    set_digest: {
+      description: "Store an AI-generated feed digest (write-back from the host model).",
+      inputSchema: {
+        type: "object",
+        properties: { text: { type: "string" } },
+        required: ["text"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        const text = String(input?.text ?? "").trim();
+        if (!text) return { empty: true };
+        set({
+          ...state,
+          digest: { ...(state.digest ?? {}), text, pending: false, error: null, at: new Date().toISOString() },
+        });
+        return { ok: true };
+      },
+    },
+
+    fail_digest: {
+      description: "Record that the AI digest could not be produced (clears the pending spinner).",
+      inputSchema: {
+        type: "object",
+        properties: { message: { type: "string" } },
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        set({
+          ...state,
+          digest: {
+            ...(state.digest ?? {}),
+            pending: false,
+            error: String(input?.message ?? "Could not produce a digest."),
+          },
+        });
+        return { ok: true };
       },
     },
 

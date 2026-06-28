@@ -23,12 +23,14 @@ That's it — no clone, no CLI flags, no build step.
 
 | Extension | Type | What it is |
 | --- | --- | --- |
-| [`news-aggregator`](extensions/news-aggregator) | Canvas | Pick a topic or free-text search and get a live, shared news feed (Google News, no API key). Save/favorite/hide items, search history, pin searches as custom topics with auto-picked icons, sort & filter, and visible-only auto-refresh. |
-| [`stock-ticker`](extensions/stock-ticker) | Canvas | A personalized live stock watchlist — shared between you and the agent, with live quotes and sparklines. |
-| [`random-animal`](extensions/random-animal) | Canvas | Roll the dice to discover a random animal and a fun fact — with bounce-in animations, floating emojis, and roll history. |
-| [`language-tutor`](extensions/language-tutor) | Canvas | Pick a language and a gamified course appears — flashcards, quizzes, XP, levels, streaks, hearts, gems, mascots and confetti. You and the agent share one learner profile. |
-| [`wiki-discover`](extensions/wiki-discover) | Canvas | A "for you" Wikipedia reader shared with the agent — pick interests (or thumbs up / meh / not-for-me each article) and it learns your topics and surfaces popular articles you'll find interesting, with article images and a live preference profile. |
+| [`news-aggregator`](extensions/news-aggregator) | Canvas | Pick a topic or free-text search and get a live, shared news feed (Google News, no API key). Save/favorite/hide items, search history, pin searches as custom topics with auto-picked icons, sort & filter, visible-only auto-refresh — plus a one-tap **AI TL;DR digest** of the current headlines. |
+| [`stock-ticker`](extensions/stock-ticker) | Canvas | A personalized live stock watchlist — shared between you and the agent, with live quotes, sparklines, and an **AI market summary** of what's moving. |
+| [`random-animal`](extensions/random-animal) | Canvas | Roll the dice to discover a random animal and a fun fact — with bounce-in animations, floating emojis, roll history, and a **"Tell me more" AI fun fact**. |
+| [`language-tutor`](extensions/language-tutor) | Canvas | Pick a language and a gamified course appears — flashcards, quizzes, XP, levels, streaks, hearts, gems, mascots and confetti, plus **AI example sentences** for any word. You and the agent share one learner profile. |
+| [`wiki-discover`](extensions/wiki-discover) | Canvas | A "for you" Wikipedia reader shared with the agent — pick interests (or thumbs up / meh / not-for-me each article) and it learns your topics and surfaces popular articles you'll find interesting, with article images, a live preference profile, and an **AI TL;DR** per article. |
 | [`code-tutor`](extensions/code-tutor) | Canvas | Turns the current codebase into a personal CS course: extracts the algorithms, data structures, complexity and theory in your code, explains each at an adjustable level (ELI5 to Wizard), points at real files with syntax-highlighted code, tracks what you understand, answers questions, and reviews good/ok/bad spots with a path to fix them. |
+
+Every canvas above is built on **canvas-kit `2026-06-27.1`**, which gives a canvas action handler a host-model bridge: `ctx.ai(question)` for a silent, no-tools answer that never adds a turn to the chat, and `ctx.askAgent(prompt)` to hand a tool-capable turn to the main agent. The **AI** features called out above all use `ctx.ai` — `extension.mjs` wires it via `runtime.setHost(...)`, and the action stays SDK-free (it just marks state "thinking" and writes the answer back), so the smoke tests still run with no SDK or network.
 
 Each lives in its own folder under [`extensions/`](extensions) and is fully self-contained
 (its `extension.mjs` plus whatever it needs — for a canvas that's `canvas-kit/` + `web/` +

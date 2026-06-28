@@ -265,10 +265,11 @@ function Gallery({ article, leadSrc }) {
   `;
 }
 
-function Article({ state }) {
+function Article({ state, invoke }) {
   const a = state.current;
   if (!a) return null;
   const matched = a.matched || [];
+  const aiPending = !!a.aiSummaryPending;
   // Prefer the page's lead thumbnail; if it has none, fall back to the first
   // in-article image (from media-list) so the frame shows a real picture.
   const leadSrc = a.thumbnail || (a.images && a.images[0] && a.images[0].src) || "";
@@ -304,6 +305,34 @@ function Article({ state }) {
         </div>
       </div>
       <div class="wd-body">
+        <div class="wd-tldr">
+          ${a.aiSummary
+            ? html`<div class="ck-card wd-tldr-card" style="padding:10px 12px;margin-bottom:10px">
+                <div class="ck-row" style="gap:6px;margin-bottom:4px">
+                  <${Icon} name="sparkles" size=${14} aria-hidden="true" />
+                  <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.04em">AI TL;DR</strong>
+                </div>
+                <p class="ck-muted" style="margin:0;font-size:13px;line-height:1.55">${a.aiSummary}</p>
+              </div>`
+            : null}
+          ${aiPending
+            ? html`<p class="ck-muted ck-row" style="gap:6px;font-size:12px;margin:0 0 8px">
+                <${Icon} name="loader" size=${14} aria-hidden="true" /> Summarizing…
+              </p>`
+            : null}
+          ${a.aiSummaryError && !aiPending
+            ? html`<p class="ck-caption" style="margin:0 0 8px;color:var(--ck-danger,#f85149)">${a.aiSummaryError}</p>`
+            : null}
+          <button
+            class="ck-btn ck-btn-sm"
+            disabled=${aiPending}
+            onClick=${() => invoke("request_summary", {}).catch(() => {})}
+            title="Summarize this article with AI"
+          >
+            <${Icon} name="sparkles" size=${14} aria-hidden="true" />
+            ${aiPending ? "Thinking…" : a.aiSummary ? "Regenerate TL;DR" : "AI TL;DR"}
+          </button>
+        </div>
         ${a.extract
           ? html`<p class="wd-extract">${a.extract}</p>`
           : html`<p class="wd-extract ck-muted">No summary available for this article.</p>`}
@@ -442,7 +471,7 @@ function App({ state, invoke, connected }) {
         : null}
 
       ${state.current
-        ? html`<${Article} state=${state} />`
+        ? html`<${Article} state=${state} invoke=${invoke} />`
         : loadingFirst
           ? html`<div class="ck-card" style="padding:16px" role="status" aria-label="Loading article">
               <div class="ck-skeleton" style="height:150px;margin-bottom:12px"></div>

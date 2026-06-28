@@ -291,6 +291,45 @@ function QuoteCard({ row, invoke, dnd }) {
   `;
 }
 
+// ---- AI market summary ----------------------------------------------------
+function AiSummary({ summary, invoke }) {
+  const [localErr, setLocalErr] = useState("");
+  const pending = !!summary?.pending;
+  const text = summary?.text;
+  const error = summary?.error || localErr;
+
+  async function run() {
+    setLocalErr("");
+    try {
+      await invoke("request_summary", {});
+    } catch (e) {
+      setLocalErr(e?.message || "Could not summarize.");
+    }
+  }
+
+  const hasBody = pending || text || error;
+  return html`
+    <div class="ck-card st-ai" style="margin:0 0 12px;padding:12px 14px">
+      <div class="ck-spread" style=${hasBody ? "margin-bottom:8px" : ""}>
+        <div class="ck-row" style="gap:6px">
+          <${Icon} name="sparkles" size=${16} />
+          <strong>AI market summary</strong>
+        </div>
+        <button class="ck-btn ck-btn-sm" disabled=${pending} onClick=${run} title="Summarize the watchlist with AI">
+          <${Icon} name=${pending ? "loader" : "sparkles"} size=${14} />
+          ${pending ? "Thinking…" : text ? "Refresh" : "Summarize"}
+        </button>
+      </div>
+      ${pending && !text ? html`<p class="ck-muted" style="margin:0;font-size:13px">Reading the tape…</p>` : null}
+      ${text ? html`<p class="ck-muted" style="margin:0;font-size:13px;line-height:1.55">${text}</p>` : null}
+      ${error && !pending ? html`<p class="ck-caption st-neg" style="margin:6px 0 0">${error}</p>` : null}
+      ${text && summary?.at
+        ? html`<div class="ck-caption ck-muted" style="margin-top:6px">Generated ${relativeTime(summary.at)}</div>`
+        : null}
+    </div>
+  `;
+}
+
 // ---- app ------------------------------------------------------------------
 function App({ state, invoke, connected }) {
   const [sort, setSort] = useState("watchlist");
@@ -416,6 +455,8 @@ function App({ state, invoke, connected }) {
           Updated ${relativeTime(state.lastRefresh, { fallback: "never" })}
         </span>
       </div>
+
+      <${AiSummary} summary=${state.aiSummary} invoke=${invoke} />
 
       <div class="st-grid">
         ${rows.length

@@ -2,13 +2,45 @@
 
 import { html, mountCanvas, useState, Icon, relativeTime } from "/kit/client.mjs";
 
-function AnimalCard({ animal }) {
+function AnimalCard({ animal, invoke }) {
   if (!animal) return null;
+  const pending = !!animal.aiFactPending;
   return html`
     <div class="ck-card animal-card" style="text-align:center;padding:24px 16px">
       <div class="animal-emoji floating" style="font-size:72px;line-height:1;margin-bottom:12px">${animal.emoji}</div>
       <h2 class="animal-name" style="margin:0 0 8px">${animal.name}</h2>
       <p class="ck-muted animal-fact" style="margin:0;font-size:14px;line-height:1.5">${animal.fact}</p>
+
+      ${animal.aiFact && html`
+        <div class="ck-card" style="margin-top:14px;text-align:left;padding:10px 12px">
+          <div class="ck-row" style="gap:6px;margin-bottom:4px">
+            <${Icon} name="sparkles" size=${14} />
+            <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.04em">AI fun fact</strong>
+          </div>
+          <p class="ck-muted" style="margin:0;font-size:13px;line-height:1.5">${animal.aiFact}</p>
+        </div>
+      `}
+
+      ${pending && html`
+        <p class="ck-muted ck-row" style="justify-content:center;gap:6px;margin:12px 0 0;font-size:12px">
+          <${Icon} name="loader" size=${14} /> Asking the AI for a fresh fact…
+        </p>
+      `}
+
+      ${animal.aiFactError && !pending && html`
+        <p class="ck-caption" style="margin:10px 0 0;font-size:12px;color:var(--ck-danger,#f85149)">${animal.aiFactError}</p>
+      `}
+
+      <div style="margin-top:14px">
+        <button
+          class="ck-btn ck-btn-sm"
+          disabled=${pending}
+          onClick=${() => invoke("request_ai_fact", {})}
+        >
+          <${Icon} name="sparkles" size=${14} />
+          ${pending ? "Thinking…" : animal.aiFact ? "Another AI fact" : "Tell me more (AI)"}
+        </button>
+      </div>
     </div>
   `;
 }
@@ -67,7 +99,7 @@ function App({ state, invoke, connected }) {
         </button>
       </div>
 
-      ${current && html`<${AnimalCard} key=${current.id} animal=${current} />`}
+      ${current && html`<${AnimalCard} key=${current.id} animal=${current} invoke=${invoke} />`}
 
       ${history.length > 0 && html`
         <div style="margin-top:20px">
