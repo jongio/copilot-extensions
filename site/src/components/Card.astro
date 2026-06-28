@@ -1,18 +1,24 @@
 ---
 interface Props {
   title: string;
-  href?: string;
   tag?: string;
+  index: number;
   image?: string;
   imageAlt?: string;
   fallback?: string;
   installPrompt?: string;
 }
-const { title, href, tag, image, imageAlt, fallback, installPrompt } = Astro.props;
-const TitleTag = href ? "a" : "span";
+const { title, tag, index, image, imageAlt, fallback, installPrompt } = Astro.props;
 ---
 
-<article style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
+<article
+  class="card"
+  data-card
+  data-index={index}
+  role="button"
+  tabindex="0"
+  aria-label={`Open ${title} details`}
+>
   {
     image && (
       <div class="card-media">
@@ -28,22 +34,8 @@ const TitleTag = href ? "a" : "span";
   }
   <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; flex: 1;">
     <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;">
-      <h2 style="margin: 0; font-size: 1.1rem;">
-        <TitleTag
-          href={href}
-          style={href ? "text-decoration: none;" : undefined}
-          {...href ? { target: "_blank", rel: "noopener" } : {}}
-        >
-          {title}
-        </TitleTag>
-      </h2>
-      {
-        tag && (
-          <span style="flex: none; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 0.15em 0.55em; border-radius: 999px;">
-            {tag}
-          </span>
-        )
-      }
+      <h2 style="margin: 0; font-size: 1.1rem;">{title}</h2>
+      {tag && <span class="lb-badge">{tag}</span>}
     </div>
     <p style="margin: 0; color: var(--muted); flex: 1;"><slot /></p>
     {
