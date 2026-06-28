@@ -1,0 +1,150 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Card from "../components/Card.astro";
+
+const repo = "https://github.com/jongio/copilot-extensions";
+const base = import.meta.env.BASE_URL;
+const fallback = `${base}screenshots/placeholder.svg`;
+
+const installPromptFor = (slug: string) =>
+  `install the ${slug} canvas from jongio/copilot-extensions/extensions/${slug}`;
+
+const extensions = [
+  {
+    slug: "news-aggregator",
+    type: "Canvas",
+    body: "Pick a topic or free-text search and get a live, shared news feed (Google News, no API key). Save/favorite/hide items, search history, pin searches as custom topics, sort & filter, visible-only auto-refresh — plus a one-tap AI TL;DR digest of the current headlines.",
+  },
+  {
+    slug: "stock-ticker",
+    type: "Canvas",
+    body: "A personalized live stock watchlist — shared between you and the agent, with live quotes, sparklines, and an AI market summary of what's moving.",
+  },
+  {
+    slug: "random-animal",
+    type: "Canvas",
+    body: "Roll the dice to discover a random animal and a fun fact — with bounce-in animations, floating emojis, roll history, and a \u201CTell me more\u201D AI fun fact.",
+  },
+  {
+    slug: "language-tutor",
+    type: "Canvas",
+    body: "Pick a language and a gamified course appears — flashcards, quizzes, XP, levels, streaks, hearts, gems, mascots and confetti, plus AI example sentences for any word. You and the agent share one learner profile.",
+  },
+  {
+    slug: "wiki-discover",
+    type: "Canvas",
+    body: "A \u201Cfor you\u201D Wikipedia reader shared with the agent — pick interests (or thumbs up / meh / not-for-me each article) and it learns your topics and surfaces popular articles you'll find interesting, with article images, a live preference profile, and an AI TL;DR per article.",
+  },
+  {
+    slug: "code-tutor",
+    type: "Canvas",
+    body: "Turns the current codebase into a personal CS course: extracts the algorithms, data structures, complexity and theory in your code, explains each at an adjustable level (ELI5 to Wizard), points at real files with syntax-highlighted code, tracks what you understand, and reviews good/ok/bad spots with a path to fix them.",
+  },
+];
+---
+
+<Layout
+  title="Copilot Extensions"
+  description="Jon's collection of GitHub Copilot extensions for the Copilot app and CLI."
+>
+  <header style="text-align: center;">
+    <p style="text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 600; color: var(--muted); margin: 0 0 0.5rem;">
+      GitHub Copilot · App &amp; CLI
+    </p>
+    <h1 style="font-size: clamp(2rem, 6vw, 3.25rem); line-height: 1.1; margin: 0 0 0.75rem;">
+      Copilot Extensions
+    </h1>
+    <p style="font-size: 1.15rem; color: var(--muted); max-width: 52ch; margin: 0 auto 1.5rem;">
+      A collection of GitHub Copilot extensions that work in both the Copilot app
+      and the Copilot CLI. Most are interactive canvas apps; others just contribute
+      agent tools or hooks.
+    </p>
+    <p style="margin: 0 0 2.5rem;">
+      <a
+        href={repo}
+        target="_blank"
+        rel="noopener"
+        style="text-decoration: none; font-weight: 600;"
+      >
+        View on GitHub →
+      </a>
+    </p>
+  </header>
+
+  <section style="display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+    {
+      extensions.map((e) => (
+        <Card
+          title={e.slug}
+          tag={e.type}
+          href={`${repo}/tree/main/extensions/${e.slug}`}
+          image={`${base}screenshots/${e.slug}.png`}
+          imageAlt={`${e.slug} screenshot`}
+          fallback={fallback}
+          installPrompt={installPromptFor(e.slug)}
+        >
+          {e.body}
+        </Card>
+      ))
+    }
+  </section>
+
+  <section style="margin-top: 3rem; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
+    <h2 style="margin: 0 0 0.75rem; font-size: 1.25rem;">Install one</h2>
+    <p style="margin: 0 0 0.75rem; color: var(--muted);">
+      Install from inside Copilot — in the app or the CLI, just ask the agent (or
+      hit <strong>Copy install prompt</strong> on any extension above and paste it
+      into Copilot):
+    </p>
+    <p style="margin: 0 0 0.75rem;">
+      <code>install the stock-ticker canvas from jongio/copilot-extensions/extensions/stock-ticker</code>
+    </p>
+    <button
+      class="copy-btn"
+      type="button"
+      data-copy="install the stock-ticker canvas from jongio/copilot-extensions/extensions/stock-ticker"
+    >
+      <svg class="copy-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+        <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+      </svg>
+      <span class="copy-label">Copy install prompt</span>
+    </button>
+    <p style="margin: 0.75rem 0 0; color: var(--muted);">
+      Copilot fetches the folder into <code>~/.copilot/extensions/</code>, reloads,
+      and it's ready — no clone, no flags, no build step.
+    </p>
+  </section>
+</Layout>
+
+<script>
+  document.addEventListener("click", async (event) => {
+    const target = event.target as HTMLElement;
+    const btn = target.closest<HTMLButtonElement>("[data-copy]");
+    if (!btn) return;
+
+    const text = btn.getAttribute("data-copy") ?? "";
+    const label = btn.querySelector<HTMLElement>(".copy-label") ?? btn;
+    const original = label.textContent;
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+
+    label.textContent = "Copied!";
+    btn.classList.add("copied");
+    window.setTimeout(() => {
+      label.textContent = original;
+      btn.classList.remove("copied");
+    }, 1500);
+  });
+</script>

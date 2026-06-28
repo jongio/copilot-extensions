@@ -1,0 +1,31 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="About · Copilot Extensions" description="About Jon's collection of GitHub Copilot extensions.">
+  <header style="text-align: center;">
+    <h1 style="font-size: clamp(1.75rem, 5vw, 2.5rem); margin: 0 0 0.75rem;">About</h1>
+  </header>
+  <div style="max-width: 60ch; margin: 0 auto; color: var(--fg);">
+    <p>
+      This is Jon's collection of <strong>GitHub Copilot extensions</strong>. They
+      load from the same place in both the <strong>Copilot app</strong> and the
+      <strong>Copilot CLI</strong>. Most are <strong>canvas extensions</strong> —
+      interactive side-panel apps (app-only, since the CLI has no panel) — but the
+      collection isn't limited to canvases: an extension can also just contribute
+      agent tools or hooks with no UI at all.
+    </p>
+    <p>
+      Every canvas is built on <strong>canvas-kit</strong>, which gives a canvas a
+      host-model bridge: <code>ctx.ai(question)</code> for a silent, no-tools answer
+      that never adds a turn to the chat, and <code>ctx.askAgent(prompt)</code> to
+      hand a tool-capable turn to the main agent.
+    </p>
+    <p>
+      Browse the source on
+      <a href="https://github.com/jongio/copilot-extensions" target="_blank" rel="noopener">GitHub</a>.
+      Each extension lives in its own self-contained folder under
+      <code>extensions/</code>, so any one installs on its own.
+    </p>
+  </div>
+</Layout>

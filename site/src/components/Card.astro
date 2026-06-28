@@ -1,0 +1,61 @@
+---
+interface Props {
+  title: string;
+  href?: string;
+  tag?: string;
+  image?: string;
+  imageAlt?: string;
+  fallback?: string;
+  installPrompt?: string;
+}
+const { title, href, tag, image, imageAlt, fallback, installPrompt } = Astro.props;
+const TitleTag = href ? "a" : "span";
+---
+
+<article style="background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
+  {
+    image && (
+      <div class="card-media">
+        <img
+          src={image}
+          alt={imageAlt ?? `${title} screenshot`}
+          loading="lazy"
+          decoding="async"
+          onerror={fallback ? `this.onerror=null;this.src='${fallback}'` : undefined}
+        />
+      </div>
+    )
+  }
+  <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; flex: 1;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;">
+      <h2 style="margin: 0; font-size: 1.1rem;">
+        <TitleTag
+          href={href}
+          style={href ? "text-decoration: none;" : undefined}
+          {...href ? { target: "_blank", rel: "noopener" } : {}}
+        >
+          {title}
+        </TitleTag>
+      </h2>
+      {
+        tag && (
+          <span style="flex: none; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 0.15em 0.55em; border-radius: 999px;">
+            {tag}
+          </span>
+        )
+      }
+    </div>
+    <p style="margin: 0; color: var(--muted); flex: 1;"><slot /></p>
+    {
+      installPrompt && (
+        <button class="copy-btn" type="button" data-copy={installPrompt}>
+          <svg class="copy-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z" />
+            <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z" />
+          </svg>
+          <span class="copy-label">Copy install prompt</span>
+        </button>
+      )
+    }
+  </div>
+</article>
