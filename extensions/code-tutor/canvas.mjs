@@ -13,6 +13,8 @@
 
 import { fileURLToPath } from "node:url";
 import { readFile, readdir, stat, realpath } from "node:fs/promises";
+import { readdirSync, statSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { resolve, isAbsolute, sep, join } from "node:path";
 import { userStore } from "./canvas-kit/storage.mjs";
 import { nid } from "./canvas-kit/format.mjs";
@@ -40,6 +42,15 @@ const EXT_NAME = "code-tutor";
 export const LEVELS = ["eli5", "curious", "engineer", "wizard"];
 const DEFAULT_LEVEL = "engineer";
 
+// How to pitch each level when we ask the session model for an explanation.
+const LEVEL_PROMPT = {
+  eli5: "Explain it like I am five: one simple everyday analogy, zero jargon.",
+  curious: "Explain it in plain English for a smart non-expert: minimal jargon, define any term you use.",
+  engineer: "Explain it for a working software engineer: precise and technical, name the mechanism and the trade-offs.",
+  wizard: "Explain it for an expert: deep and rigorous, with edge cases, complexity, and the underlying theory.",
+};
+const LEVEL_WORD = { eli5: "ELI5", curious: "Curious", engineer: "Engineer", wizard: "Wizard" };
+
 // What a topic can be filed under. Kept open-ish but enumerated so the agent
 // fills a known set the view can icon/colorize.
 const CATEGORIES = [
@@ -65,6 +76,48 @@ const FIX_STATUSES = ["open", "requested", "done"];
 function fileFor(domainId) {
   const safe = String(domainId).replace(/[^A-Za-z0-9._-]/g, "_") || "default";
   return userStore(EXT_NAME, `${safe}.json`);
+}
+
+// Directory holding the per-board JSON files (and the shared concept cache).
+function artifactsDir() {
+  const home = process.env.COPILOT_HOME || join(homedir(), ".copilot");
+  return join(home, "extensions", EXT_NAME, "artifacts");
+}
+
+// When the canvas is opened with no explicit domain, fall back to the learner's
+// most recently updated board that ACTUALLY HAS CONTENT, so "just open Code
+// Tutor" shows their real course instead of an empty "default" board. (Boards
+// are keyed by codebase name, but opening from the extensions list passes no
+// domain, and a previous no-domain open may have left an empty default.json
+// that would otherwise be the newest file.) Returns null when no non-empty
+// board exists yet, in which case the caller uses "default".
+function latestDomain() {
+  try {
+    const dir = artifactsDir();
+    let best = null;
+    let bestMs = -1;
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith(".json")) continue; // skips *.tmp temp writes too
+      if (name.startsWith("_") || name.startsWith(".")) continue; // _concept-cache.json, hidden
+      const full = join(dir, name);
+      let topics = 0;
+      try {
+        const board = JSON.parse(readFileSync(full, "utf8"));
+        topics = Array.isArray(board?.topics) ? board.topics.length : 0;
+      } catch {
+        continue; // unreadable or half-written; ignore as a candidate
+      }
+      if (topics === 0) continue; // skip empty boards (e.g. a freshly-opened default)
+      const ms = statSync(full).mtimeMs;
+      if (ms > bestMs) {
+        bestMs = ms;
+        best = name.slice(0, -5);
+      }
+    }
+    return best;
+  } catch {
+    return null; // dir missing or unreadable -> caller falls back to "default"
+  }
 }
 
 function createInitialState(ctx) {
@@ -328,13 +381,13 @@ export const canvasConfig = {
         type: "string",
         description:
           "Which codebase/curriculum board to open (e.g. the repo or project name). " +
-          "Omit for the default board.",
+          "Omit to open your most recently used board (or an empty one if you have none yet).",
       },
     },
     additionalProperties: false,
   },
 
-  resolveDomainId: (input) => (input?.domain ? String(input.domain) : "default"),
+  resolveDomainId: (input) => (input?.domain ? String(input.domain) : latestDomain() ?? "default"),
 
   createInitialState,
   loadState: async (domainId) => migrateState(await fileFor(domainId).load(null)),
@@ -662,10 +715,89 @@ export const canvasConfig = {
             else delete explanations[level];
             // This level is now authored explicitly, so it's no longer "from cache".
             const cachedLevels = (t.cachedLevels ?? []).filter((l) => l !== level);
-            return { ...t, explanations, cachedLevels, updatedAt: new Date().toISOString() };
+            // Clear any pending "asking the tutor" marker for this level.
+            const explaining = t.explaining && t.explaining.level === level ? null : t.explaining ?? null;
+            return { ...t, explanations, cachedLevels, explaining, explainError: null, updatedAt: new Date().toISOString() };
           }),
         }));
         return { status: `${text ? "Set" : "Cleared"} ${level} explanation${shouldCache ? " (cached in library)" : ""}` };
+      },
+    },
+
+    request_explanation: {
+      description:
+        "Learner asked for an explanation of a topic at a level that is not cached yet. The canvas calls " +
+        "this from the 'Get this explanation' button; the extension fulfills it with the session model and " +
+        "writes the result back via set_explanation. Returns a prompt for the host to run.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          topicId: { type: "string" },
+          level: { type: "string", enum: LEVELS },
+        },
+        required: ["topicId", "level"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        const level = normLevel(input.level, null);
+        if (!level) throw new Error(`level must be one of ${LEVELS.join(", ")}`);
+        const topic = findTopic(state, input.topicId);
+        if (!topic) throw new Error(`No topic with id ${input.topicId}`);
+
+        // Mark this level as "being explained" so the UI shows a spinner. The
+        // extension's wrapper turns the returned prompt into a session call.
+        set((cur) => ({
+          ...cur,
+          topics: cur.topics.map((t) =>
+            t.id === topic.id ? { ...t, explaining: { level, at: new Date().toISOString() }, explainError: null } : t
+          ),
+        }));
+
+        const refs = (topic.refs ?? [])
+          .slice(0, 6)
+          .map((r) => `${r.file}${r.startLine ? `:${r.startLine}${r.endLine && r.endLine !== r.startLine ? `-${r.endLine}` : ""}` : ""}`)
+          .join(", ");
+        const cat = topic.category ? `${topic.category} ` : "";
+        const where = state.codebase?.label ? ` in the codebase "${state.codebase.label}"` : "";
+        const prompt =
+          `Explain the ${cat}concept "${topic.title}"${where}.` +
+          (topic.summary ? ` Context: ${topic.summary}.` : "") +
+          (refs ? ` It shows up at: ${refs}.` : "") +
+          ` ${LEVEL_PROMPT[level]}` +
+          ` Respond with ONLY the explanation as 2 to 4 short paragraphs of plain prose.` +
+          ` No preamble, no headings, no bullet lists, no code fences, and do not use em dashes.`;
+
+        return { topicId: topic.id, level, title: topic.title, prompt };
+      },
+    },
+
+    fail_explanation: {
+      description:
+        "Clear a pending 'explaining' marker and record an error when the model call for request_explanation " +
+        "could not be fulfilled (no live session, timeout, or failure). The canvas shows a retry.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          topicId: { type: "string" },
+          level: { type: "string", enum: LEVELS },
+          message: { type: "string" },
+        },
+        required: ["topicId", "level"],
+        additionalProperties: false,
+      },
+      handler: ({ state, set, input }) => {
+        const level = normLevel(input.level, null);
+        if (!level) throw new Error(`level must be one of ${LEVELS.join(", ")}`);
+        const message = trimmed(input.message) || "The tutor could not answer right now.";
+        set((cur) => ({
+          ...cur,
+          topics: cur.topics.map((t) => {
+            if (t.id !== input.topicId) return t;
+            const stillPending = t.explaining && t.explaining.level === level;
+            return stillPending ? { ...t, explaining: null, explainError: { level, message } } : t;
+          }),
+        }));
+        return { status: "Marked explanation request as failed" };
       },
     },
 
