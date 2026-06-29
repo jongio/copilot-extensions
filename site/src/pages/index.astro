@@ -1,0 +1,377 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Card from "../components/Card.astro";
+
+const repo = "https://github.com/jongio/copilot-extensions";
+const base = import.meta.env.BASE_URL;
+const fallback = `${base}screenshots/placeholder.svg`;
+
+const installPromptFor = (slug: string) =>
+  `install the ${slug} canvas from jongio/copilot-extensions/extensions/${slug}`;
+
+const meta: Record<string, { type: string; body: string }> = {
+  "code-tutor": {
+    type: "Canvas",
+    body: "Turns the current codebase into a personal CS course: extracts the algorithms, data structures, complexity and theory in your code, explains each at an adjustable level (ELI5 to Wizard), points at real files with syntax-highlighted code, tracks what you understand, and reviews good/ok/bad spots with a path to fix them.",
+  },
+  "language-tutor": {
+    type: "Canvas",
+    body: "Pick a language and a gamified course appears — flashcards, quizzes, XP, levels, streaks, hearts, gems, mascots and confetti, plus AI example sentences for any word. You and the agent share one learner profile.",
+  },
+  "stock-ticker": {
+    type: "Canvas",
+    body: "A personalized live stock watchlist — shared between you and the agent, with live quotes, sparklines, and an AI market summary of what's moving.",
+  },
+  "news-aggregator": {
+    type: "Canvas",
+    body: "Pick a topic or free-text search and get a live, shared news feed (Google News, no API key). Save/favorite/hide items, search history, pin searches as custom topics, sort & filter, visible-only auto-refresh — plus a one-tap AI TL;DR digest of the current headlines.",
+  },
+  "wiki-discover": {
+    type: "Canvas",
+    body: "A \u201Cfor you\u201D Wikipedia reader shared with the agent — pick interests (or thumbs up / meh / not-for-me each article) and it learns your topics and surfaces popular articles you'll find interesting, with article images, a live preference profile, and an AI TL;DR per article.",
+  },
+  "random-animal": {
+    type: "Canvas",
+    body: "Roll the dice to discover a random animal and a fun fact — with bounce-in animations, floating emojis, roll history, and a \u201CTell me more\u201D AI fun fact.",
+  },
+};
+
+const groups = [
+  {
+    title: "Tutors",
+    blurb: "Learn by doing — leveled, gamified tutors that adapt to you.",
+    slugs: ["code-tutor", "language-tutor"],
+  },
+  {
+    title: "Live & discover",
+    blurb:
+      "Shared, auto-refreshing dashboards and a personalized discovery feed — each with a one-tap AI summary.",
+    slugs: ["stock-ticker", "news-aggregator", "wiki-discover"],
+  },
+  {
+    title: "Just for fun",
+    blurb: "A little delight, on demand.",
+    slugs: ["random-animal"],
+  },
+];
+
+// Flatten in group order so each card gets a stable global index the lightbox
+// navigates by (code-tutor first).
+type Item = {
+  slug: string;
+  group: string;
+  title: string;
+  type: string;
+  body: string;
+  image: string;
+  fallback: string;
+  href: string;
+  installPrompt: string;
+  index: number;
+};
+
+const items: Item[] = [];
+for (const g of groups) {
+  for (const slug of g.slugs) {
+    const m = meta[slug];
+    items.push({
+      slug,
+      group: g.title,
+      title: slug,
+      type: m.type,
+      body: m.body,
+      image: `${base}screenshots/${slug}.png`,
+      fallback,
+      href: `${repo}/tree/main/extensions/${slug}`,
+      installPrompt: installPromptFor(slug),
+      index: items.length,
+    });
+  }
+}
+
+// Slim payload the client lightbox reads (drop server-only fields).
+const clientData = items.map(({ slug, title, type, body, image, fallback, href, installPrompt }) => ({
+  slug,
+  title,
+  type,
+  body,
+  image,
+  fallback,
+  href,
+  installPrompt,
+}));
+---
+
+<Layout
+  title="Copilot Extensions by Jon Gallant"
+  description="Jon Gallant's (jongio) collection of GitHub Copilot extensions for the Copilot app and CLI."
+>
+  <header style="text-align: center;">
+    <p style="text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 600; color: var(--muted); margin: 0 0 0.5rem;">
+      GitHub Copilot · App &amp; CLI
+    </p>
+    <h1 style="font-size: clamp(2rem, 6vw, 3.25rem); line-height: 1.1; margin: 0 0 0.75rem;">
+      Copilot Extensions
+    </h1>
+    <p style="margin: 0 0 1rem; font-size: 1rem; color: var(--muted);">
+      by <a href="https://github.com/jongio" target="_blank" rel="noopener" style="font-weight: 600;">Jon Gallant (jongio)</a>
+    </p>
+    <p style="font-size: 1.15rem; color: var(--muted); max-width: 52ch; margin: 0 auto 1.5rem;">
+      A collection of GitHub Copilot extensions that work in both the Copilot app
+      and the Copilot CLI. Most are interactive canvas apps; others just contribute
+      agent tools or hooks.
+    </p>
+    <p style="font-size: 0.95rem; color: var(--muted); margin: 0 0 1.5rem;">
+      Tap any extension for a closer look.
+    </p>
+    <p style="margin: 0 0 2.5rem;">
+      <a
+        href={repo}
+        target="_blank"
+        rel="noopener"
+        style="text-decoration: none; font-weight: 600;"
+      >
+        View on GitHub →
+      </a>
+    </p>
+  </header>
+
+  {
+    groups.map((g) => {
+      const groupItems = items.filter((it) => it.group === g.title);
+      return (
+        <section class="group">
+          <div class="group-head">
+            <h2 class="group-title">
+              {g.title}
+              <span class="group-count">{groupItems.length}</span>
+            </h2>
+            <p class="group-blurb">{g.blurb}</p>
+          </div>
+          <div class={`grid${groupItems.length === 1 ? " grid-solo" : ""}`}>
+            {groupItems.map((it) => (
+              <Card
+                title={it.title}
+                tag={it.type}
+                index={it.index}
+                image={it.image}
+                imageAlt={`${it.slug} screenshot`}
+                fallback={it.fallback}
+                installPrompt={it.installPrompt}
+              >
+                {it.body}
+              </Card>
+            ))}
+          </div>
+        </section>
+      );
+    })
+  }
+
+  <section style="margin-top: 3rem; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
+    <h2 style="margin: 0 0 0.75rem; font-size: 1.25rem;">Install one</h2>
+    <p style="margin: 0 0 0.75rem; color: var(--muted);">
+      Install from inside Copilot — in the app or the CLI, just ask the agent (or
+      hit <strong>Copy install prompt</strong> on any extension above and paste it
+      into Copilot):
+    </p>
+    <p style="margin: 0 0 0.75rem;">
+      <code>install the stock-ticker canvas from jongio/copilot-extensions/extensions/stock-ticker</code>
+    </p>
+    <button
+      class="copy-btn"
+      type="button"
+      data-copy="install the stock-ticker canvas from jongio/copilot-extensions/extensions/stock-ticker"
+    >
+      <svg class="copy-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+        <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+      </svg>
+      <span class="copy-label">Copy install prompt</span>
+    </button>
+    <p style="margin: 0.75rem 0 0; color: var(--muted);">
+      Copilot fetches the folder into <code>~/.copilot/extensions/</code>, reloads,
+      and it's ready — no clone, no flags, no build step.
+    </p>
+  </section>
+
+  <!-- Lightbox: a big version of a card with prev/next navigation. -->
+  <div class="lb-overlay" id="lightbox" hidden role="dialog" aria-modal="true" aria-labelledby="lb-title">
+    <button class="lb-nav lb-prev" id="lb-prev" type="button" aria-label="Previous extension">‹</button>
+    <div class="lb-modal">
+      <button class="lb-close" id="lb-close" type="button" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"></path>
+        </svg>
+      </button>
+      <div class="lb-media"><img id="lb-img" alt="" /></div>
+      <div class="lb-body">
+        <div class="lb-head">
+          <h2 class="lb-title" id="lb-title"></h2>
+          <span class="lb-badge" id="lb-badge"></span>
+        </div>
+        <p class="lb-desc" id="lb-desc"></p>
+        <div class="lb-install">
+          <code id="lb-prompt"></code>
+          <button class="copy-btn" id="lb-copy" type="button" data-copy="">
+            <svg class="copy-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+              <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+            </svg>
+            <span class="copy-label">Copy install prompt</span>
+          </button>
+        </div>
+        <div class="lb-footer">
+          <a class="lb-gh" id="lb-gh" href="#" target="_blank" rel="noopener">View on GitHub →</a>
+          <span class="lb-count" id="lb-count"></span>
+        </div>
+      </div>
+    </div>
+    <button class="lb-nav lb-next" id="lb-next" type="button" aria-label="Next extension">›</button>
+  </div>
+
+  <script id="ext-data" type="application/json" is:inline set:html={JSON.stringify(clientData)}></script>
+</Layout>
+
+<script>
+  type Item = {
+    slug: string;
+    title: string;
+    type: string;
+    body: string;
+    image: string;
+    fallback: string;
+    href: string;
+    installPrompt: string;
+  };
+
+  const dataEl = document.getElementById("ext-data");
+  const items: Item[] = dataEl ? JSON.parse(dataEl.textContent || "[]") : [];
+
+  const overlay = document.getElementById("lightbox");
+  const imgEl = document.getElementById("lb-img") as HTMLImageElement | null;
+  const titleEl = document.getElementById("lb-title");
+  const badgeEl = document.getElementById("lb-badge");
+  const descEl = document.getElementById("lb-desc");
+  const promptEl = document.getElementById("lb-prompt");
+  const copyEl = document.getElementById("lb-copy");
+  const ghEl = document.getElementById("lb-gh") as HTMLAnchorElement | null;
+  const countEl = document.getElementById("lb-count");
+  const closeEl = document.getElementById("lb-close") as HTMLElement | null;
+
+  let current = 0;
+  let lastFocus: HTMLElement | null = null;
+
+  function populate(i: number) {
+    const it = items[i];
+    if (!it) return;
+    current = i;
+    if (imgEl) {
+      imgEl.style.opacity = "0";
+      imgEl.onerror = () => {
+        imgEl.onerror = null;
+        imgEl.src = it.fallback;
+      };
+      imgEl.src = it.image;
+      imgEl.alt = `${it.slug} screenshot`;
+      requestAnimationFrame(() => {
+        imgEl.style.opacity = "1";
+      });
+    }
+    if (titleEl) titleEl.textContent = it.title;
+    if (badgeEl) badgeEl.textContent = it.type;
+    if (descEl) descEl.textContent = it.body;
+    if (promptEl) promptEl.textContent = it.installPrompt;
+    if (copyEl) copyEl.setAttribute("data-copy", it.installPrompt);
+    if (ghEl) ghEl.href = it.href;
+    if (countEl) countEl.textContent = `${i + 1} / ${items.length}`;
+  }
+
+  function openAt(i: number) {
+    if (!overlay) return;
+    lastFocus = document.activeElement as HTMLElement;
+    populate(i);
+    overlay.hidden = false;
+    overlay.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    closeEl?.focus();
+  }
+
+  function close() {
+    if (!overlay) return;
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    lastFocus?.focus?.();
+  }
+
+  function go(delta: number) {
+    if (!items.length) return;
+    populate((current + delta + items.length) % items.length);
+  }
+
+  async function copyText(btn: HTMLElement) {
+    const text = btn.getAttribute("data-copy") ?? "";
+    const label = btn.querySelector<HTMLElement>(".copy-label") ?? btn;
+    const original = label.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    label.textContent = "Copied!";
+    btn.classList.add("copied");
+    window.setTimeout(() => {
+      label.textContent = original;
+      btn.classList.remove("copied");
+    }, 1500);
+  }
+
+  document.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+
+    const copyBtn = target.closest<HTMLElement>("[data-copy]");
+    if (copyBtn) {
+      copyText(copyBtn);
+      return;
+    }
+
+    if (target.closest("#lb-close")) return close();
+    if (target.closest("#lb-prev")) return go(-1);
+    if (target.closest("#lb-next")) return go(1);
+    if (overlay && !overlay.hidden && target === overlay) return close();
+
+    const card = target.closest<HTMLElement>("[data-card]");
+    if (card) {
+      const idx = Number(card.getAttribute("data-index"));
+      if (!Number.isNaN(idx)) openAt(idx);
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (overlay && !overlay.hidden) {
+      if (event.key === "Escape") return close();
+      if (event.key === "ArrowLeft") return go(-1);
+      if (event.key === "ArrowRight") return go(1);
+      return;
+    }
+    const target = event.target as HTMLElement;
+    if (
+      (event.key === "Enter" || event.key === " ") &&
+      target.closest("[data-card]") &&
+      !target.closest("[data-copy]")
+    ) {
+      event.preventDefault();
+      const card = target.closest<HTMLElement>("[data-card]")!;
+      const idx = Number(card.getAttribute("data-index"));
+      if (!Number.isNaN(idx)) openAt(idx);
+    }
+  });
+</script>
