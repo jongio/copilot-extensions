@@ -55,7 +55,7 @@ function main() {
   const html = readFileSync(index, "utf8");
 
   test("home page sets the title", () => {
-    assert.match(html, /<title>Copilot Extensions<\/title>/);
+    assert.match(html, /<title>Copilot Extensions by Jon Gallant<\/title>/);
   });
 
   test("every extension ships a card", () => {
@@ -99,6 +99,11 @@ function main() {
       assert.ok(existsSync(join(DIST, "screenshots", `${slug}.png`)), `dist/screenshots/${slug}.png missing`);
     }
     assert.ok(existsSync(join(DIST, "screenshots", "placeholder.svg")), "placeholder fallback missing");
+  });
+
+  test("topbar ships a theme toggle and GitHub repo link", () => {
+    assert.match(html, /id="theme-toggle"/);
+    assert.match(html, /href="https:\/\/github\.com\/jongio\/copilot-extensions"/);
   });
 
   test("about page builds with base-aware nav", () => {
