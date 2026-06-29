@@ -66,16 +66,20 @@ copilot-extensions/
 │  ├─ wiki-discover/
 │  └─ code-tutor/
 ├─ scripts/
+│  ├─ lint.mjs                 # dependency-free syntax + JSON check (run in CI)
 │  ├─ validate-extensions.mjs  # structure check (run in CI)
 │  └─ run-tests.mjs            # runs every extension's smoke test (run in CI)
-└─ .github/workflows/
-   └─ validate.yml
+└─ .github/
+   ├─ dependabot.yml           # keeps the SHA-pinned Actions current
+   └─ workflows/
+      └─ validate.yml          # lint + validate + tests, and lints the workflows
 ```
 
-Validate locally with `node scripts/validate-extensions.mjs`, and run the smoke
-tests with `node scripts/run-tests.mjs` (each boots its canvas's kit runtime over
-loopback HTTP — no SDK, no network). CI runs both the structure check and the
-smoke tests on every push and pull request.
+Validate locally with `node scripts/lint.mjs` (syntax-checks every `.mjs` and parses
+every `.json`) and `node scripts/validate-extensions.mjs` (structure check), and run
+the smoke tests with `node scripts/run-tests.mjs` (each boots its canvas's kit runtime
+over loopback HTTP — no SDK, no network). CI runs the lint, the structure check, and
+the smoke tests on every push and pull request, and lints the workflow files themselves.
 
 ## License
 

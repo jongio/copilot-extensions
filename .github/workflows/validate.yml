@@ -5,11 +5,19 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions: {}
 
+# Newer pushes to the same branch/PR supersede in-flight runs; cancel the stale
+# ones on PRs to save CI minutes, but let pushes to main run to completion.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate:
+    name: Lint, validate & test extensions
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -23,11 +31,31 @@ jobs:
         with:
           node-version: 22
 
-      - run: node scripts/validate-extensions.mjs
+      - name: Lint (syntax + JSON)
+        run: node scripts/lint.mjs
 
-      - run: node scripts/run-tests.mjs
+      - name: Validate extension structure
+        run: node scripts/validate-extensions.mjs
+
+      - name: Run extension smoke tests
+        run: node scripts/run-tests.mjs
+
+  actionlint:
+    name: Lint workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: actionlint
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
 
   site:
+    name: Build & test site
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -46,4 +74,3 @@ jobs:
 
       - run: npm test
         working-directory: site
-

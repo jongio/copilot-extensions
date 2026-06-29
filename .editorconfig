@@ -1,0 +1,19 @@
+# https://editorconfig.org — shared editor defaults so contributions match the
+# repo's existing style (tabs, LF, final newline) without needing a formatter.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = tab
+
+# Data/config files conventionally use 2-space indentation.
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Markdown uses trailing spaces for hard line breaks.
+[*.md]
+trim_trailing_whitespace = false
