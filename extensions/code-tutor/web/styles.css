@@ -303,6 +303,9 @@ button.cs-chip:hover { border-color: var(--ck-accent); color: var(--ck-fg); }
 .cs-suggest strong { color: var(--ck-accent); }
 .cs-fixprompt { font-family: var(--ck-mono); font-size: var(--fs-code); white-space: pre-wrap; background: var(--ck-bg-inset); border: 1px solid var(--ck-border); border-radius: var(--r-sm); padding: 9px 11px; line-height: 1.5; }
 .cs-finding-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* "Fix in a new session" is a ghapp:// deep-link anchor styled as a kit button;
+   strip the default underline so it reads as a button, not a link. */
+.cs-finding-actions a.ck-btn { text-decoration: none; }
 
 /* ---- empty states -------------------------------------------------------- */
 .cs-empty { text-align: center; padding: 30px 16px; color: var(--ck-muted); }

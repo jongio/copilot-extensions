@@ -5,7 +5,7 @@
 // (active tab, filters, expanded panels, draft text, live slider position) lives
 // in useState; Preact's DOM diffing keeps a live push from clobbering it.
 
-import { html, mountCanvas, useState, useEffect, useRef, Icon, relativeTime, pollWhileVisible } from "/kit/client.mjs";
+import { html, mountCanvas, useState, useEffect, useRef, Icon, relativeTime, pollWhileVisible, buildSessionDeepLink } from "/kit/client.mjs";
 import { tokenize, toLines, languageFor } from "./highlight.mjs";
 
 const LEVELS = ["eli5", "curious", "engineer", "wizard"];
@@ -524,9 +524,16 @@ function TopicCard({ topic, level, questions, open, onToggle, invoke }) {
 }
 
 // ---- findings --------------------------------------------------------------
-function FindingCard({ f, topicTitle, invoke }) {
+function FindingCard({ f, topicTitle, invoke, repo }) {
   const [showPrompt, setShowPrompt] = useState(false);
   const m = QUALITY_META[f.quality] ?? QUALITY_META.ok;
+  // A validated ghapp:// deep link that opens a NEW, dedicated Copilot session to
+  // run this finding's ready-made fix prompt. Null unless the board knows its
+  // GitHub owner/repo (set via set_codebase) AND the finding carries a fixPrompt;
+  // buildSessionDeepLink returns null for anything it can't form into a safe link,
+  // so we fall back to copy-the-prompt below.
+  const fixLink =
+    repo && f.fixPrompt ? buildSessionDeepLink({ repo, prompt: f.fixPrompt, mode: "autopilot" }) : null;
   return html`
     <div class=${`cs-finding ${f.quality}`}>
       <div class="cs-finding-head">
@@ -550,12 +557,27 @@ function FindingCard({ f, topicTitle, invoke }) {
       <div class="cs-finding-actions">
         ${f.fixPrompt
           ? html`
-              <button class="ck-btn ck-btn-sm ck-btn-primary" onClick=${async () => {
-                copy(f.fixPrompt);
-                await invoke("set_fix_status", { id: f.id, status: "requested" });
-              }}>
-                <${Icon} name="wrench" size=${14} />Request fix session
-              </button>
+              ${fixLink
+                ? html`
+                    <a
+                      class="ck-btn ck-btn-sm ck-btn-primary"
+                      href=${fixLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open a new Copilot session that fixes this"
+                      onClick=${() => invoke("set_fix_status", { id: f.id, status: "requested" })}
+                    >
+                      <${Icon} name="wrench" size=${14} />Fix in a new session
+                    </a>
+                  `
+                : html`
+                    <button class="ck-btn ck-btn-sm ck-btn-primary" onClick=${async () => {
+                      copy(f.fixPrompt);
+                      await invoke("set_fix_status", { id: f.id, status: "requested" });
+                    }}>
+                      <${Icon} name="wrench" size=${14} />Request fix session
+                    </button>
+                  `}
               <button class="ck-btn ck-btn-sm" onClick=${() => setShowPrompt((v) => !v)}>
                 <${Icon} name=${showPrompt ? "chevron-down" : "chevron-right"} size=${14} />${showPrompt ? "Hide" : "Show"} prompt
               </button>
@@ -572,7 +594,9 @@ function FindingCard({ f, topicTitle, invoke }) {
         </button>
       </div>
       ${f.fixStatus === "requested"
-        ? html`<div class="ck-caption"><${Icon} name="info" size=${12} /> Prompt copied - ask Copilot to start a session, or it'll pick this up.</div>`
+        ? html`<div class="ck-caption"><${Icon} name="info" size=${12} /> ${fixLink
+            ? "Opening a fix session in a new Copilot window - confirm it there."
+            : "Prompt copied - ask Copilot to start a session, or it'll pick this up."}</div>`
         : null}
     </div>
   `;
@@ -680,6 +704,7 @@ function LearnTab({ state, level, openIds, toggle, invoke }) {
 
 function ReviewTab({ state, invoke }) {
   const findings = state.findings ?? [];
+  const repo = state.codebase?.repo || null;
   const byId = Object.fromEntries((state.topics ?? []).map((t) => [t.id, t.title]));
   if (!findings.length) {
     return html`
@@ -704,7 +729,7 @@ function ReviewTab({ state, invoke }) {
               <h3>${m.label}</h3>
               <span class="cs-count">${group.length}</span>
             </div>
-            <div class="cs-list">${group.map((f) => html`<${FindingCard} key=${f.id} f=${f} topicTitle=${byId[f.topicId]} invoke=${invoke} />`)}</div>
+            <div class="cs-list">${group.map((f) => html`<${FindingCard} key=${f.id} f=${f} topicTitle=${byId[f.topicId]} repo=${repo} invoke=${invoke} />`)}</div>
           </div>
         `;
       })}

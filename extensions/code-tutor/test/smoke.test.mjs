@@ -126,6 +126,16 @@ try {
     assert.equal(s.codebase.fileCount, 12);
   });
 
+  await test("set_codebase stores a valid owner/repo and ignores an invalid one", async () => {
+    // A valid full name is recorded so findings can offer a session deep link.
+    await post(open.url, "set_codebase", { repo: "jongio/copilot-extensions" });
+    assert.equal((await getState(open.url)).codebase.repo, "jongio/copilot-extensions");
+    // A malformed repo must NOT overwrite the good one (lenient fallback), so a
+    // bad value never reaches buildSessionDeepLink and yields a dead link.
+    await post(open.url, "set_codebase", { repo: "not a repo/../x" });
+    assert.equal((await getState(open.url)).codebase.repo, "jongio/copilot-extensions");
+  });
+
   let topicId;
   await test("add_topic caches the generic eli5 level + auto-detects it", async () => {
     const { body } = await post(open.url, "add_topic", {
