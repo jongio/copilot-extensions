@@ -24,7 +24,7 @@ let runtime = null;
 const AI_TIMEOUT_MS = 90_000;
 const fastAI = createFastAI({ model: "gpt-5.4-mini", timeoutMs: AI_TIMEOUT_MS });
 
-// ---- host AI capability (canvas-kit 2026-06-27.1) --------------------------
+// ---- host AI capability (canvas-kit host model: ai + askAgent) -------------
 // Two ways to reach the model. Both are handed to the kit via runtime.setHost(...)
 // so SDK-free canvas.mjs handlers can call ctx.ai(...) / ctx.askAgent(...).
 //
@@ -279,7 +279,7 @@ session = await joinSession({ canvases: [canvas] });
 
 // Expose the host model to SDK-free canvas.mjs handlers as ctx.ai / ctx.askAgent.
 // The intercepts above use `host` directly; this makes the SAME capability
-// available to any plain handler too (canvas-kit 2026-06-27.1).
+// available to any plain handler too (via the kit's runtime.setHost host model).
 runtime.setHost(host);
 
 // Eagerly warm the dedicated fast-AI runtime so the learner's FIRST question or

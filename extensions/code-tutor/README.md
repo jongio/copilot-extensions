@@ -12,7 +12,7 @@ A GitHub Copilot App **canvas extension**: the agent and the user share the same
 - **Points at real code**: every topic and finding links to a file and line range. Click a reference to expand the actual source with language-aware syntax highlighting (read straight from disk under the codebase root).
 - **Mark your understanding** per topic: Understood, Not understood, Revisit, or New. A progress ring tracks how much you have understood.
 - **Ask and clarify**: ask questions per topic or globally; the agent answers in the panel.
-- **Code review**: flags good / ok / bad spots (perf, wrong data structures, suboptimal algorithms) with a one-click "Request fix session" the agent can pick up.
+- **Code review**: flags good / ok / bad spots (perf, wrong data structures, suboptimal algorithms). When the board knows its GitHub `owner/repo`, each issue gets a one-click **Fix in a new session** deep link (`ghapp://session/new`) that opens a dedicated Copilot session to run the fix; otherwise it copies a ready-to-run prompt for the agent to pick up.
 - **Freshness tracking**: fingerprints the code (git HEAD + newest file mtime) at analysis time, re-checks on a visibility-gated timer, and shows a "code changed, refresh" banner plus an always-available Refresh button. Code Tutor never re-analyzes on its own; analysis is the agent's job, so the Refresh button injects a re-analysis prompt into the current Copilot session.
 
 ## Layout
@@ -41,7 +41,9 @@ Copy this folder into `.github/extensions/code-tutor` (in-repo) or
 `$COPILOT_HOME/extensions/code-tutor` (personal), then run `extensions_reload` and
 open it with `open_canvas` (`canvasId: "code-tutor"`). Point it at a codebase by
 asking Copilot to analyze the repo; it calls `set_codebase` (with a `root` so
-code references resolve) and then authors the topics, references and findings.
+code references resolve, and optionally `repo` as `owner/repo` to enable the
+"Fix in a new session" deep links) and then authors the topics, references and
+findings.
 
 ## Keeping the kit current
 

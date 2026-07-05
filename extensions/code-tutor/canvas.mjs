@@ -18,6 +18,7 @@ import { homedir } from "node:os";
 import { resolve, isAbsolute, sep, join } from "node:path";
 import { userStore } from "./canvas-kit/storage.mjs";
 import { nid } from "./canvas-kit/format.mjs";
+import { isRepoFullName } from "./canvas-kit/deeplinks.mjs";
 import {
   conceptKeyFor,
   looksCodebaseSpecific,
@@ -413,6 +414,12 @@ export const canvasConfig = {
         properties: {
           label: { type: "string", description: "Display name, e.g. the repo or project name." },
           root: { type: "string", description: "Absolute or repo-relative root path that was analyzed." },
+          repo: {
+            type: "string",
+            description:
+              "GitHub \"owner/repo\" this codebase belongs to. When set, findings offer a one-click " +
+              "\"Fix in a new session\" deep link that opens a dedicated Copilot session to run the fix.",
+          },
           summary: { type: "string", description: "1-3 sentence overview of what the codebase does." },
           fileCount: { type: "number", description: "Approximate number of source files analyzed." },
           languages: {
@@ -425,9 +432,19 @@ export const canvasConfig = {
       },
       handler: async ({ state, set, input }) => {
         const root = trimmed(input.root) || state.codebase?.root || "";
+        // Only keep a repo that passes github-app's own owner/repo validation, so
+        // a bogus value never reaches buildSessionDeepLink (which would drop it and
+        // yield a null link). An omitted/invalid input preserves the prior repo.
+        const inputRepo = trimmed(input.repo);
+        const repo = isRepoFullName(inputRepo)
+          ? inputRepo
+          : isRepoFullName(state.codebase?.repo)
+            ? state.codebase.repo
+            : null;
         const codebase = {
           label: trimmed(input.label) || state.codebase?.label || "This codebase",
           root,
+          repo,
           summary: trimmed(input.summary) || state.codebase?.summary || "",
           fileCount: Number.isFinite(input.fileCount) ? Math.max(0, input.fileCount | 0) : state.codebase?.fileCount ?? null,
           languages: Array.isArray(input.languages)
