@@ -17,16 +17,18 @@
   --r-md: 9px;
   --r-sm: 6px;
 
-  /* level palette */
-  --lvl-eli5: #3fb950;
-  --lvl-curious: #58a6ff;
-  --lvl-engineer: #d29922;
-  --lvl-wizard: #bc8cff;
+  /* Level palette. Semantic kit tokens (not raw hex) so each hue tracks the
+     user's theme: the injected values darken for contrast on light and brighten
+     on dark. Wizard uses the injected purple data token. */
+  --lvl-eli5: var(--ck-success);
+  --lvl-curious: var(--ck-accent);
+  --lvl-engineer: var(--ck-attention);
+  --lvl-wizard: var(--color-data-purple-emphasis, #8250df);
 
   /* quality palette */
-  --q-good: #3fb950;
-  --q-ok: #d29922;
-  --q-bad: #f85149;
+  --q-good: var(--ck-success);
+  --q-ok: var(--ck-attention);
+  --q-bad: var(--ck-danger);
 }
 
 body { padding: 0; }
@@ -104,7 +106,7 @@ button.cs-chip:hover { border-color: var(--ck-accent); color: var(--ck-fg); }
 .cs-slider input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%;
   background: var(--ck-bg); border: 3px solid var(--lvl); cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
 }
 .cs-slider input[type="range"]::-moz-range-thumb {
   width: 18px; height: 18px; border-radius: 50%; background: var(--ck-bg); border: 3px solid var(--lvl); cursor: pointer;
@@ -137,7 +139,7 @@ button.cs-chip:hover { border-color: var(--ck-accent); color: var(--ck-fg); }
   background: color-mix(in srgb, var(--ck-bg-muted) 94%, transparent);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--ck-border);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
   transform: translateY(-110%); opacity: 0; visibility: hidden;
   transition: transform 0.18s ease, opacity 0.18s ease, visibility 0.18s;
   --lvl: var(--ck-accent);
