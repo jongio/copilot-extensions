@@ -20,14 +20,14 @@ const LEVEL_COLOR = {
 };
 
 const CATEGORY_META = {
-  algorithm: { icon: "workflow", label: "Algorithm", color: "#58a6ff" },
-  "data-structure": { icon: "boxes", label: "Data structure", color: "#bc8cff" },
-  complexity: { icon: "gauge", label: "Complexity", color: "#e3b341" },
-  theory: { icon: "brain", label: "Theory", color: "#56d4dd" },
-  pattern: { icon: "layers", label: "Pattern", color: "#3fb950" },
-  paradigm: { icon: "git-fork", label: "Paradigm", color: "#f778ba" },
-  concurrency: { icon: "waypoints", label: "Concurrency", color: "#f0883e" },
-  system: { icon: "network", label: "System", color: "#a371f7" },
+  algorithm: { icon: "workflow", label: "Algorithm", color: "var(--color-data-blue-emphasis, #58a6ff)" },
+  "data-structure": { icon: "boxes", label: "Data structure", color: "var(--color-data-purple-emphasis, #bc8cff)" },
+  complexity: { icon: "gauge", label: "Complexity", color: "var(--color-data-yellow-emphasis, #e3b341)" },
+  theory: { icon: "brain", label: "Theory", color: "var(--color-data-teal-emphasis, #56d4dd)" },
+  pattern: { icon: "layers", label: "Pattern", color: "var(--color-data-green-emphasis, #3fb950)" },
+  paradigm: { icon: "git-fork", label: "Paradigm", color: "var(--color-data-pink-emphasis, #f778ba)" },
+  concurrency: { icon: "waypoints", label: "Concurrency", color: "var(--color-data-orange-emphasis, #f0883e)" },
+  system: { icon: "network", label: "System", color: "var(--color-data-plum-emphasis, #a371f7)" },
 };
 const catMeta = (c) => CATEGORY_META[c] ?? { icon: "book-open", label: c || "Topic", color: "var(--ck-accent)" };
 
