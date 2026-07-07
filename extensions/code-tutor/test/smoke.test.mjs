@@ -367,7 +367,9 @@ try {
   await test("clear_cache with an out-of-enum level is rejected (does NOT nuke the concept)", async () => {
     const { body } = await post(open.url, "clear_cache", { conceptKey: "linear-search", level: "bogus" });
     assert.equal(body.ok, false);
-    assert.match(body.message, /level must be one of/);
+    // The kit's schema validation rejects the out-of-enum level (its message names
+    // the allowed values); the handler's own guard would say the same thing.
+    assert.match(body.message, /must be one of/);
     // the concept's cached levels survive the rejected call
     const after = await post(open.url, "lookup_explanation", { conceptKey: "linear-search" });
     assert.ok(after.body.result.cachedLevels.length > 0, "concept must not be deleted by a bad level");
