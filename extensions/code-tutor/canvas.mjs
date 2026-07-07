@@ -1309,7 +1309,9 @@ export const canvasConfig = {
       },
       handler: async ({ input }) => {
         // L4: an out-of-enum level must NOT silently fall through to deleting the
-        // whole concept (the kit does no schema validation). Reject it instead.
+        // whole concept. The kit's schema validation now rejects a bad `level`
+        // (enum) before this runs; this manual guard stays as a belt-and-suspenders
+        // fallback that produces the same rejection.
         let level = null;
         if (input.level !== undefined) {
           level = normLevel(input.level, null);
