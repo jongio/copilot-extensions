@@ -9,10 +9,31 @@ const fallback = `${base}screenshots/placeholder.svg`;
 const installPromptFor = (slug: string) =>
   `install the ${slug} canvas from jongio/copilot-extensions/extensions/${slug}`;
 
-const meta: Record<string, { type: string; body: string }> = {
+// The gallery shown in an extension's lightbox. Extensions with per-feature shots
+// get the full set (each image + caption); the rest fall back to their single hero.
+const galleryFor = (slug: string, image: string) => {
+  const shots = meta[slug]?.shots;
+  if (shots?.length) {
+    return shots.map((s) => ({ src: `${base}screenshots/${slug}/${s.name}.png`, caption: s.caption }));
+  }
+  return [{ src: image, caption: "" }];
+};
+
+const meta: Record<string, { type: string; body: string; shots?: { name: string; caption: string }[] }> = {
   "code-tutor": {
     type: "Canvas",
     body: "Turns the current codebase into a personal CS course: extracts the algorithms, data structures, complexity and theory in your code, explains each at an adjustable level (ELI5 to Wizard), points at real files with syntax-highlighted code, tracks what you understand, and reviews good/ok/bad spots with a path to fix them.",
+    shots: [
+      { name: "overview", caption: "The full curriculum board: a progress ring, the reading-level slider, and a card per concept." },
+      { name: "reading-levels", caption: "One slider from ELI5 to Wizard re-pitches every explanation to the depth you want." },
+      { name: "concept-cache", caption: "Generic explanations are cached once and reused across boards, tagged when reused." },
+      { name: "categories", caption: "Every concept is filed under a category; filter by category or by your progress." },
+      { name: "code-reference", caption: "Each topic links to real source, read from disk with language-aware highlighting." },
+      { name: "mark-understanding", caption: "Mark each topic Understood, Not understood, Revisit, or New." },
+      { name: "ask-clarify", caption: "Ask questions per topic; answers land in the panel without touching the chat." },
+      { name: "code-review", caption: "Good / ok / bad findings, each with a one-click Fix in a new session." },
+      { name: "freshness", caption: "Fingerprints the code and flags when it drifts, with a Refresh button." },
+    ],
   },
   "language-tutor": {
     type: "Canvas",
@@ -67,6 +88,7 @@ type Item = {
   fallback: string;
   href: string;
   installPrompt: string;
+  shots: { src: string; caption: string }[];
   index: number;
 };
 
@@ -74,23 +96,25 @@ const items: Item[] = [];
 for (const g of groups) {
   for (const slug of g.slugs) {
     const m = meta[slug];
+    const image = `${base}screenshots/${slug}.png`;
     items.push({
       slug,
       group: g.title,
       title: slug,
       type: m.type,
       body: m.body,
-      image: `${base}screenshots/${slug}.png`,
+      image,
       fallback,
       href: `${repo}/tree/main/extensions/${slug}`,
       installPrompt: installPromptFor(slug),
+      shots: galleryFor(slug, image),
       index: items.length,
     });
   }
 }
 
 // Slim payload the client lightbox reads (drop server-only fields).
-const clientData = items.map(({ slug, title, type, body, image, fallback, href, installPrompt }) => ({
+const clientData = items.map(({ slug, title, type, body, image, fallback, href, installPrompt, shots }) => ({
   slug,
   title,
   type,
@@ -99,6 +123,7 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
   fallback,
   href,
   installPrompt,
+  shots,
 }));
 ---
 
@@ -206,6 +231,8 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
       </button>
       <div class="lb-media"><img id="lb-img" alt="" /></div>
       <div class="lb-body">
+        <div class="lb-thumbs" id="lb-thumbs" hidden></div>
+        <p class="lb-caption" id="lb-caption" hidden></p>
         <div class="lb-head">
           <h2 class="lb-title" id="lb-title"></h2>
           <span class="lb-badge" id="lb-badge"></span>
@@ -243,6 +270,7 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
     fallback: string;
     href: string;
     installPrompt: string;
+    shots: { src: string; caption: string }[];
   };
 
   const dataEl = document.getElementById("ext-data");
@@ -258,26 +286,71 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
   const ghEl = document.getElementById("lb-gh") as HTMLAnchorElement | null;
   const countEl = document.getElementById("lb-count");
   const closeEl = document.getElementById("lb-close") as HTMLElement | null;
+  const thumbsEl = document.getElementById("lb-thumbs");
+  const captionEl = document.getElementById("lb-caption");
 
   let current = 0;
+  let shotIdx = 0;
   let lastFocus: HTMLElement | null = null;
 
-  function populate(i: number) {
-    const it = items[i];
-    if (!it) return;
-    current = i;
+  // Swap the main image + caption to shot j of the current extension, and mark
+  // the active thumbnail. Falls back to the extension's placeholder on load error.
+  function showShot(it: Item, j: number) {
+    const shots = it.shots?.length ? it.shots : [{ src: it.image, caption: "" }];
+    shotIdx = (j + shots.length) % shots.length;
+    const s = shots[shotIdx];
     if (imgEl) {
       imgEl.style.opacity = "0";
       imgEl.onerror = () => {
         imgEl.onerror = null;
         imgEl.src = it.fallback;
       };
-      imgEl.src = it.image;
-      imgEl.alt = `${it.slug} screenshot`;
+      imgEl.src = s.src;
+      imgEl.alt = `${it.slug} ${s.caption || "screenshot"}`;
       requestAnimationFrame(() => {
         imgEl.style.opacity = "1";
       });
     }
+    if (captionEl) {
+      captionEl.textContent = s.caption;
+      captionEl.hidden = !s.caption;
+    }
+    if (thumbsEl) {
+      thumbsEl.querySelectorAll<HTMLElement>(".lb-thumb").forEach((t, k) => {
+        t.classList.toggle("active", k === shotIdx);
+        t.setAttribute("aria-current", k === shotIdx ? "true" : "false");
+      });
+    }
+  }
+
+  // Build the thumbnail strip for the current extension (hidden when it has one shot).
+  function renderShots(it: Item) {
+    if (!thumbsEl) return;
+    const shots = it.shots?.length ? it.shots : [{ src: it.image, caption: "" }];
+    thumbsEl.hidden = shots.length <= 1;
+    thumbsEl.innerHTML = "";
+    if (shots.length <= 1) return;
+    shots.forEach((s, k) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "lb-thumb";
+      btn.setAttribute("data-shot", String(k));
+      btn.setAttribute("aria-label", s.caption || `View ${k + 1}`);
+      const img = document.createElement("img");
+      img.src = s.src;
+      img.alt = "";
+      img.loading = "lazy";
+      btn.appendChild(img);
+      thumbsEl.appendChild(btn);
+    });
+  }
+
+  function populate(i: number) {
+    const it = items[i];
+    if (!it) return;
+    current = i;
+    renderShots(it);
+    showShot(it, 0);
     if (titleEl) titleEl.textContent = it.title;
     if (badgeEl) badgeEl.textContent = it.type;
     if (descEl) descEl.textContent = it.body;
@@ -347,6 +420,18 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
     if (target.closest("#lb-prev")) return go(-1);
     if (target.closest("#lb-next")) return go(1);
     if (overlay && !overlay.hidden && target === overlay) return close();
+
+    const thumb = target.closest<HTMLElement>(".lb-thumb");
+    if (thumb) {
+      const j = Number(thumb.getAttribute("data-shot"));
+      if (!Number.isNaN(j)) showShot(items[current], j);
+      return;
+    }
+
+    if (target.closest("#lb-img")) {
+      showShot(items[current], shotIdx + 1);
+      return;
+    }
 
     const card = target.closest<HTMLElement>("[data-card]");
     if (card) {
