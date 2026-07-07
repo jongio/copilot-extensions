@@ -44,6 +44,7 @@ const { canvasConfig } = await import("../canvas.mjs");
 const { createCanvasRuntime } = await import("../canvas-kit/server.mjs");
 const fmt = await import("../canvas-kit/format.mjs");
 const cacheMod = await import("../cache.mjs");
+const { buildDemoState, seedDemoBoard } = await import("../demo/seed.mjs");
 const runtime = createCanvasRuntime(canvasConfig);
 
 let passed = 0;
@@ -507,6 +508,71 @@ try {
     assert.equal(t.explanations.engineer, "college words"); // undergrad -> engineer
     assert.equal(t.explanations.wizard, "phd words"); // doctorate -> wizard
     assert.equal(s.questions[0].level, "wizard"); // doctorate -> wizard
+  });
+
+  // ---- demo mode: buildDemoState + seedDemoBoard + self-contained refs ------
+  await test("buildDemoState is a valid modern board covering every feature", () => {
+    const s = buildDemoState();
+    const LEVELS = ["eli5", "curious", "engineer", "wizard"];
+    const CATS = ["algorithm", "data-structure", "complexity", "theory", "pattern", "paradigm", "concurrency", "system"];
+    const cats = new Set(s.topics.map((t) => t.category));
+    for (const c of CATS) assert.ok(cats.has(c), `demo covers category ${c}`);
+    // At least one topic carries all four reading levels (so the slider always has content).
+    assert.ok(
+      s.topics.some((t) => LEVELS.every((l) => t.explanations[l])),
+      "a topic has all four levels",
+    );
+    // At least one topic is intentionally missing a level so the "Get this explanation" CTA shows.
+    assert.ok(
+      s.topics.some((t) => LEVELS.some((l) => !t.explanations[l])),
+      "a topic is missing a level (CTA)",
+    );
+    const quals = new Set(s.findings.map((f) => f.quality));
+    for (const q of ["good", "ok", "bad"]) assert.ok(quals.has(q), `demo has a ${q} finding`);
+    assert.ok(s.findings.some((f) => f.fixStatus === "requested"), "a finding is in the requested state");
+    assert.ok(s.questions.some((q) => q.answer), "an answered question");
+    assert.ok(s.questions.some((q) => !q.answer), "a pending question");
+    const statuses = new Set(s.topics.map((t) => t.status));
+    for (const st of ["new", "understood", "confused", "revisit"]) assert.ok(statuses.has(st), `a ${st} topic`);
+    assert.ok(s.codebase.repo, "repo set so findings expose Fix-in-a-new-session");
+    // Referential integrity: every finding/question topicId points at a real topic.
+    const ids = new Set(s.topics.map((t) => t.id));
+    for (const x of [...s.findings, ...s.questions]) {
+      if (x.topicId) assert.ok(ids.has(x.topicId), `topicId ${x.topicId} exists`);
+    }
+  });
+
+  await test("seedDemoBoard writes the board and opening the domain loads it unchanged", async () => {
+    const file = await seedDemoBoard({ home, domain: "demo-seed" });
+    assert.match(file, /artifacts[\\/]demo-seed\.json$/);
+    const expected = buildDemoState({ domain: "demo-seed" });
+    const c = await runtime.openInstance({
+      instanceId: "demo-seed",
+      input: { domain: "demo-seed" },
+      ctx: { instanceId: "demo-seed", input: { domain: "demo-seed" } },
+    });
+    const s = await getState(c.url);
+    assert.equal(s.topics.length, expected.topics.length, "all topics load");
+    assert.equal(s.findings.length, expected.findings.length, "all findings load");
+    assert.equal(s.questions.length, expected.questions.length, "all questions load");
+    assert.equal(s.defaultLevel, "curious", "defaultLevel survives load (modern key, no migration drift)");
+    assert.equal(s.codebase.label, "Code Tutor (demo)");
+    // Modern state must pass through migrateState untouched: fixed timestamps preserved.
+    const t0 = s.topics.find((t) => t.id === "demo-t-algorithm");
+    assert.ok(t0 && t0.createdAt && t0.explanations.wizard, "topic loads with its explanations intact");
+  });
+
+  await test("a demo code reference resolves via read_snippet under the demo root", async () => {
+    const c = await runtime.openInstance({
+      instanceId: "demo-snip",
+      input: { domain: "demo-seed" },
+      ctx: { instanceId: "demo-snip", input: { domain: "demo-seed" } },
+    });
+    const { body } = await post(c.url, "read_snippet", { file: "canvas.mjs", startLine: 906, endLine: 925 });
+    assert.ok(body.result, "read_snippet returns a result");
+    assert.ok(Array.isArray(body.result.lines) && body.result.lines.length > 0, "returns source lines");
+    assert.equal(body.result.focusStart, 906);
+    assert.equal(body.result.focusEnd, 925);
   });
 
   await test("unknown action returns 400 with a code", async () => {
