@@ -5,7 +5,6 @@
 import { createCanvas, joinSession, CanvasError } from "@github/copilot-sdk/extension";
 import { canvasConfig } from "./canvas.mjs";
 import { createCanvasRuntime, CanvasKitError } from "./canvas-kit/server.mjs";
-import { createFastAI } from "./fast-ai.mjs";
 
 // Session handle, set once joinSession resolves. The wrappers below close over
 // it so a UI button click can reach the model for THIS Copilot session.
@@ -14,42 +13,28 @@ let session = null;
 // only run on a later UI click, by which point it is initialized).
 let runtime = null;
 
-// Fast path: a dedicated, warm Copilot runtime running a FAST model in a fresh,
-// context-free session per query (~2s answers vs 20-60s for an in-session
-// ephemeralQuery). See fast-ai.mjs. Falls back to ephemeralQuery if the warm
-// runtime can't start (e.g. the binary can't be located).
-//
 // How long a silent tutor query may run before we give up and show a retry.
 // Normal answers land well inside this; the cap is for true stalls.
 const AI_TIMEOUT_MS = 90_000;
-const fastAI = createFastAI({ model: "gpt-5.4-mini", timeoutMs: AI_TIMEOUT_MS });
 
 // ---- host AI capability (canvas-kit host model: ai + askAgent) -------------
 // Two ways to reach the model. Both are handed to the kit via runtime.setHost(...)
 // so SDK-free canvas.mjs handlers can call ctx.ai(...) / ctx.askAgent(...).
 //
-//  - ai(question): a SILENT, context-free answer. Tries the FAST dedicated
-//    runtime first (separate process, fresh fast-model session, no chat bleed),
-//    and falls back to the in-session ephemeralQuery if that runtime is
-//    unavailable. Either way it never adds a turn to the user's conversation.
+//  - ai(question): a SILENT answer via the in-session ephemeralQuery. It never
+//    adds a turn to the user's conversation. It DOES run against the ambient
+//    conversation context, so canvas.mjs frames each prompt as a self-contained
+//    instruction ("You are a tutor. Output ONLY ...") to avoid context bleed.
 //  - askAgent(prompt): hand a turn to the MAIN agent (visible, tool-capable).
 //    Used by request_refresh, which needs the agent to re-read the repo.
 const host = {
   ai: async (question) => {
-    const q = String(question);
-    try {
-      return await fastAI.ai(q);
-    } catch (e) {
-      // Fast runtime unavailable or errored - fall back to the in-session
-      // ephemeralQuery so the tutor still works (just slower).
-      console.error(`[code-tutor] fast ai() failed, falling back to ephemeralQuery: ${e?.message ?? e}`);
-      const { answer } = await withTimeout(
-        session.rpc.ui.ephemeralQuery({ question: q }),
-        AI_TIMEOUT_MS,
-        "The tutor",
-      );
-      return String(answer ?? "").trim();
-    }
+    const { answer } = await withTimeout(
+      session.rpc.ui.ephemeralQuery({ question: String(question) }),
+      AI_TIMEOUT_MS,
+      "The tutor",
+    );
+    return String(answer ?? "").trim();
   },
   askAgent: async (prompt) => session.send(String(prompt)),
 };
@@ -281,29 +266,3 @@ session = await joinSession({ canvases: [canvas] });
 // The intercepts above use `host` directly; this makes the SAME capability
 // available to any plain handler too (via the kit's runtime.setHost host model).
 runtime.setHost(host);
-
-// Eagerly warm the dedicated fast-AI runtime so the learner's FIRST question or
-// explanation is fast too (not just subsequent ones). Fire-and-forget; if it
-// fails, the first ai() call simply pays the cold start (or falls back).
-void fastAI.warmup();
-
-// Graceful teardown of the warm fast-AI runtime so the dedicated child process
-// doesn't linger after a reload/shutdown. On SIGINT/SIGTERM, run the async
-// dispose() (which calls client.stop()) then exit — adding these listeners
-// overrides Node's default terminate, so we MUST exit ourselves, with a hard
-// timeout so a hung stop() can't wedge shutdown. We deliberately do NOT schedule
-// async work on 'exit' (it can't run there); the forStdio child also dies on our
-// stdin EOF, so an abrupt exit still reaps it.
-let shuttingDown = false;
-for (const sig of ["SIGINT", "SIGTERM"]) {
-  process.once(sig, () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    const hardExit = setTimeout(() => process.exit(0), 3000);
-    if (typeof hardExit.unref === "function") hardExit.unref();
-    Promise.resolve()
-      .then(() => fastAI.dispose())
-      .catch(() => {})
-      .finally(() => process.exit(0));
-  });
-}
