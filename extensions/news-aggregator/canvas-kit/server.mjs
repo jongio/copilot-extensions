@@ -20,6 +20,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, normalize, extname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validate } from "./validate.mjs";
 
 const KIT_DIR = fileURLToPath(new URL(".", import.meta.url));
 
@@ -52,7 +53,10 @@ export class CanvasKitError extends Error {
  * @param {(ctx:object)=>any|Promise<any>} [config.createInitialState]
  * @param {(domainId:string)=>any|Promise<any>} [config.loadState]
  * @param {(domainId:string, state:any)=>void|Promise<void>} [config.saveState]
+ * @param {(domainId:string)=>{changed:boolean,state?:any}|Promise<{changed:boolean,state?:any}>} [config.syncState]  optional delta-poll of a SHARED durable source (e.g. githubStore.poll); when set with syncIntervalMs, remote changes are adopted + broadcast to viewers live
+ * @param {number} [config.syncIntervalMs]  poll cadence for syncState; only polled while a domain has >=1 connected viewer
  * @param {Record<string,{description?:string,inputSchema?:object,handler:Function}>} config.actions
+ * @param {object} [config.stateSchema]  optional JSON-Schema-subset for the durable state; when set, a mutation that violates it is rolled back and fails (500)
  * @param {string} config.assetsDir  absolute path to the canvas web/ folder
  * @param {(ctx:object,state:any)=>string} [config.statusLine]
  */
@@ -112,14 +116,110 @@ export function createCanvasRuntime(config) {
     }
   }
 
+  // ---- optional shared-state sync (repo-backed multiplayer) ----------------
+  // When config.syncState + config.syncIntervalMs are set, poll the durable
+  // source on an interval and adopt+broadcast remote changes, so collaborators
+  // editing a SHARED store (e.g. githubStore) see each other's edits live. We
+  // only poll a domain while at least one SSE client is watching it — no viewers,
+  // no network — so API usage stays proportional to real use. syncState returns
+  // { changed:boolean, state? }; a cheap unchanged poll (ETag 304) is changed:false.
+  const syncing = new Set(); // domainIds with an in-flight poll (prevents overlap)
+  let syncTimer = null;
+
+  function domainHasViewers(domainId) {
+    for (const inst of instances.values()) {
+      if (inst.domainId === domainId && inst.clients.size > 0) return true;
+    }
+    return false;
+  }
+
+  async function syncDomain(domainId) {
+    if (syncing.has(domainId)) return; // last tick still in flight — skip
+    syncing.add(domainId);
+    try {
+      const out = await config.syncState(domainId);
+      // Adopt only a real, non-null remote state. A null (file deleted upstream)
+      // is ignored so a transient upstream gap can't blank a live board.
+      if (out?.changed && out.state != null) {
+        const d = domains.get(domainId);
+        if (d) {
+          // Adopted remote state must clear the SAME stateSchema gate the invoke()
+          // path enforces. A collaborator (or a hand-edit on github.com) can push a
+          // shape that violates the schema; adopting it unvalidated would broadcast a
+          // corrupt shape to every viewer AND poison the next invoke()'s rollback
+          // baseline (structuredClone would snapshot the already-invalid state).
+          // Reject (skip) an invalid remote instead — the next valid write reconciles.
+          if (config.stateSchema && validate(config.stateSchema, out.state, "sync-remote").length) {
+            return;
+          }
+          d.state = out.state;
+          broadcast(domainId);
+        }
+      }
+    } catch {
+      // A transient network/API error must not kill the timer; retry next tick.
+    } finally {
+      syncing.delete(domainId);
+    }
+  }
+
+  function syncTick() {
+    for (const domainId of domains.keys()) {
+      if (domainHasViewers(domainId)) syncDomain(domainId);
+    }
+  }
+
+  // Floor the poll cadence: a mistakenly tiny interval (e.g. 1ms) would hammer the
+  // durable source — for githubStore that means burning the GitHub API rate limit in
+  // seconds. 2s is well below any real collaboration-latency need.
+  const MIN_SYNC_INTERVAL_MS = 2000;
+
+  function startSync() {
+    if (syncTimer || typeof config.syncState !== "function") return;
+    const requested = Number(config.syncIntervalMs) || 0;
+    if (requested <= 0) return;
+    const ms = Math.max(requested, MIN_SYNC_INTERVAL_MS);
+    syncTimer = setInterval(syncTick, ms);
+    syncTimer.unref?.(); // never keep the process alive just to poll
+  }
+
+  function stopSync() {
+    if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
+  }
+
   // Core action invoker — the single code path behind both agent and UI actions.
   async function invoke(actionName, input, ctx) {
-    const action = config.actions[actionName];
+    // Own-property lookup: `config.actions[actionName]` via bracket access would
+    // otherwise reach inherited members (e.g. "constructor", "toString"). The
+    // handler-typeof check below already rejects those, but resolving by
+    // Object.hasOwn keeps the boundary explicit and consistent with validate.mjs.
+    const action =
+      typeof actionName === "string" && Object.hasOwn(config.actions, actionName)
+        ? config.actions[actionName]
+        : null;
     if (!action || typeof action.handler !== "function") {
       throw new CanvasKitError("unknown_action", `Unknown action: ${actionName}`);
     }
+    // Enforce the declared inputSchema at the boundary (agent OR ui). The schema
+    // is a contract authors already write; validating it here turns "declared but
+    // unchecked" into a typed boundary and stops a malformed/typo'd payload from
+    // reaching the handler. A shape violation is the CALLER's fault → invalid_input
+    // (HTTP 400). Business rules ("title can't be blank") still live in the handler
+    // and surface as a 500, so a schema-valid-but-empty string reaches the handler.
+    if (action.inputSchema) {
+      const errs = validate(action.inputSchema, input ?? {}, "input");
+      if (errs.length) {
+        throw new CanvasKitError("invalid_input", `Invalid input for '${actionName}': ${errs.join("; ")}`);
+      }
+    }
     const domainId = ctx?.domainId ?? "default";
     const d = await getDomain(domainId, ctx);
+    // Deep snapshot for stateSchema rollback: a handler may mutate state IN PLACE
+    // and return the same object, so a reference copy (prevState = d.state) would
+    // point at the same (now-corrupt) object and restore nothing. structuredClone
+    // gives a real pre-mutation copy. Durable state is JSON-shaped, so it clones
+    // cleanly. Only pay the clone when a stateSchema is actually configured.
+    const prevState = config.stateSchema ? structuredClone(d.state) : undefined;
     let mutated = false;
     const api = {
       get state() { return d.state; },
@@ -161,6 +261,17 @@ export function createCanvasRuntime(config) {
     };
     const result = await action.handler(api);
     if (mutated) {
+      // Optional stateSchema guards the durable shape: if a handler produced an
+      // invalid state, roll back the in-memory mutation and fail LOUD (a 500 —
+      // this is a handler bug, not caller input) instead of persisting/broadcasting
+      // corrupt state. Absent stateSchema, anything goes (opt-in).
+      if (config.stateSchema) {
+        const errs = validate(config.stateSchema, d.state, "state");
+        if (errs.length) {
+          d.state = prevState; // roll back so in-memory stays consistent
+          throw new Error(`Action '${actionName}' produced invalid state: ${errs.join("; ")}`);
+        }
+      }
       if (config.saveState) await config.saveState(domainId, d.state);
       broadcast(domainId);
     }
@@ -202,6 +313,12 @@ export function createCanvasRuntime(config) {
   // local client can't force unbounded memory growth on the loopback runtime.
   const MAX_BODY_BYTES = 1 << 20; // 1 MiB
 
+  // Cap concurrent SSE subscribers PER INSTANCE. A canvas panel needs only one
+  // /events stream (a couple across reopens); a runaway reconnect loop or a
+  // hostile local process hitting the loopback port could otherwise accumulate
+  // unbounded response handles + keep-alive timers. 64 is far above any real use.
+  const MAX_SSE_CLIENTS = 64;
+
   function readBody(req) {
     return new Promise((resolve, reject) => {
       const chunks = [];
@@ -240,6 +357,13 @@ export function createCanvasRuntime(config) {
 
       // GET /events — Server-Sent Events stream of state
       if (req.method === "GET" && path === "/events") {
+        // Refuse once an instance is saturated, so subscribers can't grow without
+        // bound (each holds a response handle + a keep-alive interval).
+        if (inst && inst.clients.size >= MAX_SSE_CLIENTS) {
+          res.writeHead(503, { "Content-Type": "text/plain", "Retry-After": "5" });
+          res.end("too many event subscribers");
+          return;
+        }
         res.writeHead(200, {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
@@ -307,6 +431,15 @@ export function createCanvasRuntime(config) {
    * @returns {Promise<{url:string,title:string,status?:string}>}
    */
   async function openInstance({ instanceId, input, ctx }) {
+    // Validate the open input against the declared inputSchema (same contract the
+    // actions get). A bad open payload fails fast with invalid_input rather than
+    // silently resolving the wrong domain.
+    if (config.inputSchema) {
+      const errs = validate(config.inputSchema, input ?? {}, "open input");
+      if (errs.length) {
+        throw new CanvasKitError("invalid_input", `Invalid open input: ${errs.join("; ")}`);
+      }
+    }
     const domainId = config.resolveDomainId
       ? config.resolveDomainId(input ?? {}, ctx ?? {}) || "default"
       : "default";
@@ -341,12 +474,15 @@ export function createCanvasRuntime(config) {
   }
 
   async function shutdown() {
+    stopSync();
     await Promise.all([...instances.keys()].map(closeInstance));
   }
 
   async function getState(domainId = "default") {
     return (await getDomain(domainId)).state;
   }
+
+  startSync(); // no-op unless config.syncState + syncIntervalMs are set
 
   return {
     config,
@@ -358,5 +494,6 @@ export function createCanvasRuntime(config) {
     invokeFromAgent, // agent-side, resolves domain from ctx
     getState,
     _instances: instances,
+    _syncDomain: syncDomain, // manual one-shot sync (tests)
   };
 }
