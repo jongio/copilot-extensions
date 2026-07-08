@@ -243,7 +243,7 @@ try {
     assert.equal((await st("flow")).queue.length, 1, "queue must not be cleared on a no-op removal");
   });
   await test("rating the current article advances + re-ranks + marks it seen (M1)", async () => {
-    await inv("rate", { value: "down", article: undefined }, "flow"); // rate current (Galaxy)
+    await inv("rate", { value: "down" }, "flow"); // rate current (Galaxy)
     const s = await st("flow");
     assert.equal(s.current.title, "Cooking", "advanced to the next ranked card");
     assert.ok(s.seenIds.includes("1"), "the rated article id is now seen");
