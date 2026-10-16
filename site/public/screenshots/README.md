@@ -5,11 +5,6 @@ it up automatically. Name each file after the extension's folder slug:
 
 | File | Used by |
 | --- | --- |
-| `pr-statusline.png` | pr-statusline card, lightbox, and annotated visual guide |
-| `issue-statusline.png` | issue-statusline card, lightbox, and annotated visual guide |
-| `subagent-statusline.png` | subagent-statusline card, lightbox, and annotated visual guide |
-| `statusline-composed-terminal.png` | Composed PR + Issue + Subagent 3-type overview diagram |
-| `crops/*.png` | Up-close 2x-zoomed token and pill screenshots for the statusline breakdown cards |
 | `news-aggregator.png` | news-aggregator card |
 | `stock-ticker.png` | stock-ticker card |
 | `random-animal.png` | random-animal card |
