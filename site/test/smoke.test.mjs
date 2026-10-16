@@ -21,6 +21,9 @@ const DIST = join(SITE, "dist");
 const BASE = "/copilot-extensions/";
 
 const EXPECTED = [
+  "pr-statusline",
+  "issue-statusline",
+  "subagent-statusline",
   "code-tutor",
   "language-tutor",
   "stock-ticker",
@@ -28,7 +31,7 @@ const EXPECTED = [
   "wiki-discover",
   "random-animal",
 ];
-const GROUPS = ["Tutors", "Live &amp; discover", "Just for fun"];
+const GROUPS = ["Copilot CLI Statuslines", "Tutors", "Live &amp; discover", "Just for fun"];
 
 let passed = 0;
 function test(name, fn) {
@@ -69,11 +72,11 @@ function main() {
     assert.deepEqual(titles, GROUPS);
   });
 
-  test("embedded data lists all six extensions, code-tutor first", () => {
+  test("embedded data lists all nine extensions, pr-statusline first", () => {
     const m = html.match(/id="ext-data"[^>]*>(.*?)<\/script>/s);
     assert.ok(m, "ext-data JSON block present");
     const data = JSON.parse(m[1]);
-    assert.equal(data.length, 6);
+    assert.equal(data.length, 9);
     assert.deepEqual(data.map((d) => d.slug), EXPECTED);
     for (const d of data) {
       assert.ok(d.installPrompt.includes(d.slug), "install prompt names its extension");
