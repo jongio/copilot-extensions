@@ -6,10 +6,24 @@ const repo = "https://github.com/jongio/copilot-extensions";
 const base = import.meta.env.BASE_URL;
 const fallback = `${base}screenshots/placeholder.svg`;
 
-const installPromptFor = (slug: string) =>
-  `install the ${slug} canvas from jongio/copilot-extensions/extensions/${slug}`;
+const installPromptFor = (slug: string, type: string) =>
+  type === "Canvas"
+    ? `install the ${slug} canvas from jongio/copilot-extensions/extensions/${slug}`
+    : `install the ${slug} extension from jongio/copilot-extensions/extensions/${slug} and run its installer`;
 
 const meta: Record<string, { type: string; body: string }> = {
+  "pr-statusline": {
+    type: "CLI statusline",
+    body: "Live, color-coded PR status pills in the Copilot CLI footer for every PR this session is working on across repos and worktrees, with clickable owner/repo#number links, CI check progress (passed/total), approvals (approved/total), resolved review comments (resolved/total), and a purple Merged badge that dismisses on your next input.",
+  },
+  "issue-statusline": {
+    type: "CLI statusline",
+    body: "Separate clickable issue pills in the Copilot CLI footer for every GitHub issue this session is working on, with priority/bug badges, linked-PR indicators, assignees, comment counts, and a purple Closed badge that dismisses on your next input.",
+  },
+  "subagent-statusline": {
+    type: "CLI statusline",
+    body: "Live subagent state counter pill (starting, in PR, merged, failed) for the active Copilot CLI session. When all subagent PRs merge, the pill turns purple and dismisses on your next input.",
+  },
   "code-tutor": {
     type: "Canvas",
     body: "Turns the current codebase into a personal CS course: extracts the algorithms, data structures, complexity and theory in your code, explains each at an adjustable level (ELI5 to Wizard), points at real files with syntax-highlighted code, tracks what you understand, and reviews good/ok/bad spots with a path to fix them.",
@@ -38,14 +52,20 @@ const meta: Record<string, { type: string; body: string }> = {
 
 const groups = [
   {
+    title: "Copilot CLI Statuslines",
+    blurb:
+      "Composable terminal statuslines for GitHub Copilot CLI that track active session Pull Requests, GitHub Issues, and Subagents side-by-side.",
+    slugs: ["pr-statusline", "issue-statusline", "subagent-statusline"],
+  },
+  {
     title: "Tutors",
-    blurb: "Learn by doing — leveled, gamified tutors that adapt to you.",
+    blurb: "Learn by doing: leveled, gamified tutors that adapt to you.",
     slugs: ["code-tutor", "language-tutor"],
   },
   {
     title: "Live & discover",
     blurb:
-      "Shared, auto-refreshing dashboards and a personalized discovery feed — each with a one-tap AI summary.",
+      "Shared, auto-refreshing dashboards and a personalized discovery feed.",
     slugs: ["stock-ticker", "news-aggregator", "wiki-discover"],
   },
   {
@@ -83,7 +103,7 @@ for (const g of groups) {
       image: `${base}screenshots/${slug}.png`,
       fallback,
       href: `${repo}/tree/main/extensions/${slug}`,
-      installPrompt: installPromptFor(slug),
+      installPrompt: installPromptFor(slug, m.type),
       index: items.length,
     });
   }
@@ -148,6 +168,252 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
             </h2>
             <p class="group-blurb">{g.blurb}</p>
           </div>
+          {g.title === "Copilot CLI Statuslines" && (
+            <div class="statusline-showcase">
+              <div class="sl-shot-block">
+                <div class="sl-trio-banner" aria-label="Three Statusline Types">
+                  <span class="sl-trio-item c-pr">Pull Requests</span>
+                  <span class="sl-trio-sep" aria-hidden="true">|</span>
+                  <span class="sl-trio-item c-issue">Issues</span>
+                  <span class="sl-trio-sep" aria-hidden="true">|</span>
+                  <span class="sl-trio-item c-sub">Subagents</span>
+                </div>
+                <div class="sl-shot-wrap" data-full-img={`${base}screenshots/statusline-composed-terminal.png`} role="button" tabindex="0" aria-label="View Composed Statusline infographic full size">
+                  <img src={`${base}screenshots/statusline-composed-terminal.png`} alt="Annotated overview of the three Copilot CLI statusline types: Pull Requests, Issues, and Subagents" loading="eager" />
+                  <span class="sl-zoom-hint">Click to view full size</span>
+                </div>
+              </div>
+
+              <div class="sl-install-stack">
+                <div class="sl-install-head">
+                  <strong>Quick Interactive Setup (Prompts for PRs, Issues, and/or Subagents)</strong>
+                  <span><a href={`${base}pr-statusline-doc.html`}>Open full documentation →</a></span>
+                </div>
+                <div class="sl-install-item">
+                  <div class="sl-os-label">Windows (PowerShell one-liner)</div>
+                  <div class="code-block">
+                    <pre><code>irm https://raw.githubusercontent.com/jongio/copilot-extensions/main/install-statusline.ps1 | iex</code></pre>
+                    <button class="code-copy-btn" type="button" data-copy="irm https://raw.githubusercontent.com/jongio/copilot-extensions/main/install-statusline.ps1 | iex" aria-label="Copy Windows command" title="Copy command">
+                      <svg class="icon-copy" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+                        <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+                      </svg>
+                      <svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="sl-install-item">
+                  <div class="sl-os-label">macOS &amp; Linux (Bash one-liner)</div>
+                  <div class="code-block">
+                    <pre><code>curl -fsSL https://raw.githubusercontent.com/jongio/copilot-extensions/main/install-statusline.sh | bash</code></pre>
+                    <button class="code-copy-btn" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/jongio/copilot-extensions/main/install-statusline.sh | bash" aria-label="Copy macOS and Linux command" title="Copy command">
+                      <svg class="icon-copy" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+                        <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+                      </svg>
+                      <svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="sl-install-item">
+                  <div class="sl-os-label">Ask Copilot CLI (All OSes)</div>
+                  <div class="code-block">
+                    <pre><code>set up the copilot statusline from jongio/copilot-extensions and ask me whether I want PRs, issues, and/or subagents</code></pre>
+                    <button class="code-copy-btn" type="button" data-copy="set up the copilot statusline from jongio/copilot-extensions and ask me whether I want PRs, issues, and/or subagents" aria-label="Copy Copilot prompt" title="Copy prompt">
+                      <svg class="icon-copy" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+                        <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+                      </svg>
+                      <svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sl-infographic-list">
+
+                <div class="sl-shot-block">
+                  <div class="sl-shot-header">
+                    <div>
+                      <strong>1. Pull Request Statusline (<code>pr-statusline</code>) · All States &amp; Icons</strong>
+                      <p class="sl-shot-sub">Tracks every pull request this session touches across repositories and worktrees. Each pill is a clickable OSC 8 link to the PR web view.</p>
+                    </div>
+                    <span><a href={`${repo}/tree/main/extensions/pr-statusline`} target="_blank" rel="noopener">View source →</a></span>
+                  </div>
+                  <div class="sl-shot-wrap" data-full-img={`${base}screenshots/pr-statusline.png`} role="button" tabindex="0" aria-label="View PR Statusline infographic full size">
+                    <img src={`${base}screenshots/pr-statusline.png`} alt="Annotated infographic of pr-statusline showing Green, Amber, Red, and Purple PR pills and explaining each icon" loading="lazy" />
+                    <span class="sl-zoom-hint">Click to view full size</span>
+                  </div>
+                  <div class="sl-legend-grid">
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/pr-link.png`} role="button" tabindex="0" aria-label="View Repo#PR Link up-close screenshot">
+                        <img src={`${base}screenshots/crops/pr-link.png`} alt="Up-close screenshot of clickable Repo#PR link token" loading="lazy" />
+                      </div>
+                      <code>Repo#PR Link</code>
+                      <span>Clickable OSC 8 link to <code>owner/repo#number</code> on GitHub (Ctrl+Click or Cmd+Click)</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/pr-ci.png`} role="button" tabindex="0" aria-label="View CI Checks up-close screenshot">
+                        <img src={`${base}screenshots/crops/pr-ci.png`} alt="Up-close screenshot of passing, running, and failing CI check tokens" loading="lazy" />
+                      </div>
+                      <code>CI Checks (X/Y)</code>
+                      <span>Passed checks out of total checks (green checkmark when all pass, hourglass when running, red X when any fail)</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/pr-conflict.png`} role="button" tabindex="0" aria-label="View Merge Conflict up-close screenshot">
+                        <img src={`${base}screenshots/crops/pr-conflict.png`} alt="Up-close screenshot of merge conflict warning token" loading="lazy" />
+                      </div>
+                      <code>Merge Conflict</code>
+                      <span>Warning triangle shown on red pills when <code>mergeStateStatus === "DIRTY"</code></span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/pr-approvals.png`} role="button" tabindex="0" aria-label="View Approvals up-close screenshot">
+                        <img src={`${base}screenshots/crops/pr-approvals.png`} alt="Up-close screenshot of PR approval counter tokens" loading="lazy" />
+                      </div>
+                      <code>Approvals (X/Y)</code>
+                      <span>Thumbs-up icon with approvals received vs total reviewers</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/pr-threads.png`} role="button" tabindex="0" aria-label="View Review Threads up-close screenshot">
+                        <img src={`${base}screenshots/crops/pr-threads.png`} alt="Up-close screenshot of PR review thread counter tokens" loading="lazy" />
+                      </div>
+                      <code>Threads (X/Y)</code>
+                      <span>Comment icon with resolved review threads vs total review threads</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/pr-merged.png`} role="button" tabindex="0" aria-label="View Purple Merged PR up-close screenshot">
+                        <img src={`${base}screenshots/crops/pr-merged.png`} alt="Up-close screenshot of purple merged PR pill" loading="lazy" />
+                      </div>
+                      <code>Purple Merged</code>
+                      <span>Turns GitHub Merged Purple when landed and auto-dismisses after your next prompt</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="sl-shot-block">
+                  <div class="sl-shot-header">
+                    <div>
+                      <strong>2. GitHub Issue Statusline (<code>issue-statusline</code>) · All States &amp; Icons</strong>
+                      <p class="sl-shot-sub">Renders a separate clickable pill for each GitHub issue worked on in the active session with priority labels, linked PRs, assignees, and comment counts.</p>
+                    </div>
+                    <span><a href={`${repo}/tree/main/extensions/issue-statusline`} target="_blank" rel="noopener">View source →</a></span>
+                  </div>
+                  <div class="sl-shot-wrap" data-full-img={`${base}screenshots/issue-statusline.png`} role="button" tabindex="0" aria-label="View Issue Statusline infographic full size">
+                    <img src={`${base}screenshots/issue-statusline.png`} alt="Annotated infographic of issue-statusline showing Green, Amber, Red, and Purple issue pills and explaining each icon" loading="lazy" />
+                    <span class="sl-zoom-hint">Click to view full size</span>
+                  </div>
+                  <div class="sl-legend-grid">
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/issue-link.png`} role="button" tabindex="0" aria-label="View Repo#Issue Link up-close screenshot">
+                        <img src={`${base}screenshots/crops/issue-link.png`} alt="Up-close screenshot of clickable Repo#Issue link token" loading="lazy" />
+                      </div>
+                      <code>Repo#Issue Link</code>
+                      <span>Separate clickable OSC 8 link per issue (issue icon for standard issues, bug icon for bug-labeled issues)</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/issue-label.png`} role="button" tabindex="0" aria-label="View Priority Label up-close screenshot">
+                        <img src={`${base}screenshots/crops/issue-label.png`} alt="Up-close screenshot of issue priority and bug labels" loading="lazy" />
+                      </div>
+                      <code>Priority / Label</code>
+                      <span>Surfaces the highest-signal label (<code>P0</code>, <code>P1</code>, <code>bug</code>, <code>enhancement</code>) right inside the pill</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/issue-pr.png`} role="button" tabindex="0" aria-label="View Linked Open PR up-close screenshot">
+                        <img src={`${base}screenshots/crops/issue-pr.png`} alt="Up-close screenshot of linked open PR indicator icon" loading="lazy" />
+                      </div>
+                      <code>Linked Open PR</code>
+                      <span>PR branch icon shown when an open pull request cross-references or closes the issue</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/issue-assignee.png`} role="button" tabindex="0" aria-label="View Assignee up-close screenshot">
+                        <img src={`${base}screenshots/crops/issue-assignee.png`} alt="Up-close screenshot of issue assignee token" loading="lazy" />
+                      </div>
+                      <code>Assignee</code>
+                      <span>User icon with the assigned GitHub handle (green when assigned + active, amber when unassigned)</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/issue-comments.png`} role="button" tabindex="0" aria-label="View Comment Count up-close screenshot">
+                        <img src={`${base}screenshots/crops/issue-comments.png`} alt="Up-close screenshot of issue comment count token" loading="lazy" />
+                      </div>
+                      <code>Comment Count</code>
+                      <span>Comment bubble showing total discussion comments on the issue</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/issue-closed.png`} role="button" tabindex="0" aria-label="View Purple Closed Issue up-close screenshot">
+                        <img src={`${base}screenshots/crops/issue-closed.png`} alt="Up-close screenshot of purple closed completed issue pill" loading="lazy" />
+                      </div>
+                      <code>Purple Closed</code>
+                      <span>Turns purple when closed as completed during this session and auto-dismisses on your next prompt</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="sl-shot-block">
+                  <div class="sl-shot-header">
+                    <div>
+                      <strong>3. Subagent Statusline (<code>subagent-statusline</code>) · Fleet Phases &amp; Counters</strong>
+                      <p class="sl-shot-sub">Aggregates background subagents spawned by the current Copilot CLI session into live phase counters so you can see fleet progress at a glance.</p>
+                    </div>
+                    <span><a href={`${repo}/tree/main/extensions/subagent-statusline`} target="_blank" rel="noopener">View source →</a></span>
+                  </div>
+                  <div class="sl-shot-wrap" data-full-img={`${base}screenshots/subagent-statusline.png`} role="button" tabindex="0" aria-label="View Subagent Statusline infographic full size">
+                    <img src={`${base}screenshots/subagent-statusline.png`} alt="Annotated infographic of subagent-statusline showing active fleet counters and all-merged summary pill with pointer lines" loading="lazy" />
+                    <span class="sl-zoom-hint">Click to view full size</span>
+                  </div>
+                  <div class="sl-legend-grid">
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/sub-icon.png`} role="button" tabindex="0" aria-label="View Subagent Icon up-close screenshot">
+                        <img src={`${base}screenshots/crops/sub-icon.png`} alt="Up-close screenshot of subagent fleet icon token" loading="lazy" />
+                      </div>
+                      <code>Subagent Icon</code>
+                      <span>Session fleet tracker (click opens subagent PRs in your browser; run <code>/tasks</code> in console to inspect agents)</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/sub-starting.png`} role="button" tabindex="0" aria-label="View Starting Counter up-close screenshot">
+                        <img src={`${base}screenshots/crops/sub-starting.png`} alt="Up-close screenshot of subagents starting counter token" loading="lazy" />
+                      </div>
+                      <code>N starting</code>
+                      <span>Hourglass counter for subagents currently running before opening a pull request</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/sub-inpr.png`} role="button" tabindex="0" aria-label="View In-PR Counter up-close screenshot">
+                        <img src={`${base}screenshots/crops/sub-inpr.png`} alt="Up-close screenshot of subagents in PR counter token" loading="lazy" />
+                      </div>
+                      <code>N in PR</code>
+                      <span>PR icon counter for subagents with an open pull request under review or CI</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/sub-merged.png`} role="button" tabindex="0" aria-label="View Merged Counter up-close screenshot">
+                        <img src={`${base}screenshots/crops/sub-merged.png`} alt="Up-close screenshot of merged subagent PR counter token" loading="lazy" />
+                      </div>
+                      <code>N merged</code>
+                      <span>Merge icon counter for subagents whose pull requests have landed</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/sub-failed.png`} role="button" tabindex="0" aria-label="View Failed Counter up-close screenshot">
+                        <img src={`${base}screenshots/crops/sub-failed.png`} alt="Up-close screenshot of failed subagent counter token" loading="lazy" />
+                      </div>
+                      <code>N failed</code>
+                      <span>Red X counter shown if any subagent exits with a failure (turns the pill red)</span>
+                    </div>
+                    <div class="sl-legend-item">
+                      <div class="sl-legend-crop" data-full-img={`${base}screenshots/crops/sub-allmerged.png`} role="button" tabindex="0" aria-label="View All Merged Pill up-close screenshot">
+                        <img src={`${base}screenshots/crops/sub-allmerged.png`} alt="Up-close screenshot of purple all-merged subagent pill" loading="lazy" />
+                      </div>
+                      <code>All Merged Pill</code>
+                      <span>Turns purple when every subagent PR has merged (0 starting, 0 in PR) and dismisses on your next prompt</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div class={`grid${groupItems.length === 1 ? " grid-solo" : ""}`}>
             {groupItems.map((it) => (
               <Card
@@ -171,27 +437,30 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
   <section style="margin-top: 3rem; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
     <h2 style="margin: 0 0 0.75rem; font-size: 1.25rem;">Install one</h2>
     <p style="margin: 0 0 0.75rem; color: var(--muted);">
-      Install from inside Copilot — in the app or the CLI, just ask the agent (or
-      hit <strong>Copy install prompt</strong> on any extension above and paste it
-      into Copilot):
+      Install from inside Copilot in the app or the CLI: just ask the agent (or
+      click the copy icon on any extension code block above and paste it into Copilot):
     </p>
-    <p style="margin: 0 0 0.75rem;">
-      <code>install the stock-ticker canvas from jongio/copilot-extensions/extensions/stock-ticker</code>
-    </p>
-    <button
-      class="copy-btn"
-      type="button"
-      data-copy="install the stock-ticker canvas from jongio/copilot-extensions/extensions/stock-ticker"
-    >
-      <svg class="copy-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-        <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
-        <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
-      </svg>
-      <span class="copy-label">Copy install prompt</span>
-    </button>
+    <div class="code-block">
+      <pre><code>install the stock-ticker canvas from jongio/copilot-extensions/extensions/stock-ticker</code></pre>
+      <button
+        class="code-copy-btn"
+        type="button"
+        data-copy="install the stock-ticker canvas from jongio/copilot-extensions/extensions/stock-ticker"
+        aria-label="Copy install prompt"
+        title="Copy install prompt"
+      >
+        <svg class="icon-copy" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+        <svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"></path>
+        </svg>
+      </button>
+    </div>
     <p style="margin: 0.75rem 0 0; color: var(--muted);">
       Copilot fetches the folder into <code>~/.copilot/extensions/</code>, reloads,
-      and it's ready — no clone, no flags, no build step.
+      and it's ready with no clone, no flags, and no build step.
     </p>
   </section>
 
@@ -204,21 +473,23 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
           <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"></path>
         </svg>
       </button>
-      <div class="lb-media"><img id="lb-img" alt="" /></div>
+      <div class="lb-media" id="lb-media-wrap" role="button" tabindex="0" aria-label="View full-size image" title="Click to view full size"><img id="lb-img" alt="" /><span class="sl-zoom-hint">Click to view full size</span></div>
       <div class="lb-body">
         <div class="lb-head">
           <h2 class="lb-title" id="lb-title"></h2>
           <span class="lb-badge" id="lb-badge"></span>
         </div>
         <p class="lb-desc" id="lb-desc"></p>
-        <div class="lb-install">
-          <code id="lb-prompt"></code>
-          <button class="copy-btn" id="lb-copy" type="button" data-copy="">
-            <svg class="copy-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <div class="code-block lb-install">
+          <pre><code id="lb-prompt"></code></pre>
+          <button class="code-copy-btn" id="lb-copy" type="button" data-copy="" aria-label="Copy install prompt" title="Copy install prompt">
+            <svg class="icon-copy" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
               <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
               <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
             </svg>
-            <span class="copy-label">Copy install prompt</span>
+            <svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"></path>
+            </svg>
           </button>
         </div>
         <div class="lb-footer">
@@ -228,6 +499,18 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
       </div>
     </div>
     <button class="lb-nav lb-next" id="lb-next" type="button" aria-label="Next extension">›</button>
+  </div>
+
+  <!-- Full-size image viewer overlay -->
+  <div class="img-zoom-overlay" id="img-zoom-overlay" hidden role="dialog" aria-modal="true" aria-label="Full-size image viewer">
+    <div class="img-zoom-toolbar">
+      <button class="img-zoom-btn" id="img-zoom-toggle" type="button">1:1 Actual Size</button>
+      <a class="img-zoom-btn" id="img-zoom-raw" href="#" target="_blank" rel="noopener">Open in new tab ↗</a>
+      <button class="img-zoom-btn img-zoom-close" id="img-zoom-close" type="button" aria-label="Close full-size image">✕ Close</button>
+    </div>
+    <div class="img-zoom-stage" id="img-zoom-stage">
+      <img id="img-zoom-target" alt="" />
+    </div>
   </div>
 
   <script id="ext-data" type="application/json" is:inline set:html={JSON.stringify(clientData)}></script>
@@ -259,8 +542,45 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
   const countEl = document.getElementById("lb-count");
   const closeEl = document.getElementById("lb-close") as HTMLElement | null;
 
+  const zoomOverlay = document.getElementById("img-zoom-overlay");
+  const zoomTarget = document.getElementById("img-zoom-target") as HTMLImageElement | null;
+  const zoomToggle = document.getElementById("img-zoom-toggle");
+  const zoomRaw = document.getElementById("img-zoom-raw") as HTMLAnchorElement | null;
+  const zoomClose = document.getElementById("img-zoom-close") as HTMLElement | null;
+
   let current = 0;
   let lastFocus: HTMLElement | null = null;
+  let zoomLastFocus: HTMLElement | null = null;
+
+  function openFullImage(src: string, alt = "Full-size image") {
+    if (!zoomOverlay || !zoomTarget) return;
+    zoomLastFocus = document.activeElement as HTMLElement;
+    zoomTarget.src = src;
+    zoomTarget.alt = alt;
+    zoomTarget.classList.remove("is-actual-size");
+    if (zoomToggle) zoomToggle.textContent = "1:1 Actual Size";
+    if (zoomRaw) zoomRaw.href = src;
+    zoomOverlay.hidden = false;
+    document.body.style.overflow = "hidden";
+    zoomClose?.focus();
+  }
+
+  function closeFullImage() {
+    if (!zoomOverlay) return;
+    zoomOverlay.hidden = true;
+    if (!overlay || overlay.hidden) {
+      document.body.style.overflow = "";
+    }
+    zoomLastFocus?.focus?.();
+  }
+
+  function toggleActualSize() {
+    if (!zoomTarget) return;
+    const isActual = zoomTarget.classList.toggle("is-actual-size");
+    if (zoomToggle) {
+      zoomToggle.textContent = isActual ? "Fit to Screen" : "1:1 Actual Size";
+    }
+  }
 
   function populate(i: number) {
     const it = items[i];
@@ -312,8 +632,8 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
 
   async function copyText(btn: HTMLElement) {
     const text = btn.getAttribute("data-copy") ?? "";
-    const label = btn.querySelector<HTMLElement>(".copy-label") ?? btn;
-    const original = label.textContent;
+    const label = btn.querySelector<HTMLElement>(".copy-label");
+    const original = label?.textContent ?? "";
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -326,16 +646,35 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
       document.execCommand("copy");
       ta.remove();
     }
-    label.textContent = "Copied!";
+    if (label) label.textContent = "Copied!";
     btn.classList.add("copied");
     window.setTimeout(() => {
-      label.textContent = original;
+      if (label) label.textContent = original;
       btn.classList.remove("copied");
     }, 1500);
   }
 
   document.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
+
+    if (target.closest("#img-zoom-close")) return closeFullImage();
+    if (target.closest("#img-zoom-toggle") || target === zoomTarget) return toggleActualSize();
+    if (zoomOverlay && !zoomOverlay.hidden && (target === zoomOverlay || target.id === "img-zoom-stage")) {
+      return closeFullImage();
+    }
+
+    const fullImgTrigger = target.closest<HTMLElement>("[data-full-img]");
+    if (fullImgTrigger) {
+      const src = fullImgTrigger.getAttribute("data-full-img");
+      const img = fullImgTrigger.querySelector("img");
+      if (src) openFullImage(src, img?.alt || "Full-size image");
+      return;
+    }
+
+    if (target.closest("#lb-media-wrap") && imgEl?.src) {
+      openFullImage(imgEl.src, imgEl.alt || "Full-size image");
+      return;
+    }
 
     const copyBtn = target.closest<HTMLElement>("[data-copy]");
     if (copyBtn) {
@@ -356,6 +695,10 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
   });
 
   document.addEventListener("keydown", (event) => {
+    if (zoomOverlay && !zoomOverlay.hidden) {
+      if (event.key === "Escape") return closeFullImage();
+      return;
+    }
     if (overlay && !overlay.hidden) {
       if (event.key === "Escape") return close();
       if (event.key === "ArrowLeft") return go(-1);
@@ -363,6 +706,14 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
       return;
     }
     const target = event.target as HTMLElement;
+    const fullImgTrigger = target.closest<HTMLElement>("[data-full-img]");
+    if ((event.key === "Enter" || event.key === " ") && fullImgTrigger) {
+      event.preventDefault();
+      const src = fullImgTrigger.getAttribute("data-full-img");
+      const img = fullImgTrigger.querySelector("img");
+      if (src) openFullImage(src, img?.alt || "Full-size image");
+      return;
+    }
     if (
       (event.key === "Enter" || event.key === " ") &&
       target.closest("[data-card]") &&
@@ -375,3 +726,301 @@ const clientData = items.map(({ slug, title, type, body, image, fallback, href, 
     }
   });
 </script>
+
+<style is:global>
+  .statusline-showcase {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: clamp(1rem, 2.5vw, 1.5rem);
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .sl-install-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+  }
+  .sl-install-head strong {
+    color: var(--fg);
+    font-size: 1rem;
+  }
+  .sl-infographic-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+  .sl-shot-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: clamp(0.85rem, 2vw, 1.25rem);
+  }
+  .sl-trio-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: clamp(0.6rem, 2.5vw, 1.5rem);
+    margin-bottom: 0.9rem;
+    padding: 0.5rem 0.75rem;
+    font-size: clamp(1.45rem, 3vw, 2.25rem);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .sl-trio-item.c-pr    { color: #58a6ff; }
+  .sl-trio-item.c-issue { color: #3fb950; }
+  .sl-trio-item.c-sub   { color: #f2cc60; }
+  .sl-trio-sep {
+    color: var(--border);
+    font-weight: 300;
+  }
+  .sl-shot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .sl-shot-header strong {
+    color: var(--fg);
+    font-size: 1.08rem;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+  .sl-shot-sub {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .sl-shot-wrap {
+    position: relative;
+    display: block;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: #0d1117;
+    cursor: zoom-in;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .sl-shot-wrap:hover, .sl-shot-wrap:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 8px 28px -12px rgba(0, 0, 0, 0.65);
+    outline: none;
+  }
+  .sl-shot-wrap img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 7px;
+  }
+  .lb-media {
+    position: relative;
+    cursor: zoom-in;
+  }
+  .sl-zoom-hint {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(13, 17, 23, 0.85);
+    color: #e6edf3;
+    border: 1px solid rgba(240, 246, 252, 0.22);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    pointer-events: none;
+    opacity: 0.82;
+    transition: opacity 0.15s ease, border-color 0.15s ease;
+  }
+  .sl-shot-wrap:hover .sl-zoom-hint,
+  .lb-media:hover .sl-zoom-hint {
+    opacity: 1;
+    border-color: var(--accent);
+  }
+  .img-zoom-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(1, 4, 9, 0.92);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    display: flex;
+    flex-direction: column;
+  }
+  .img-zoom-overlay[hidden] {
+    display: none;
+  }
+  .img-zoom-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    background: rgba(13, 17, 23, 0.9);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .img-zoom-btn {
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #e6edf3;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.35rem 0.75rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .img-zoom-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .img-zoom-stage {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  #img-zoom-target {
+    display: block;
+    max-width: 96vw;
+    max-height: calc(94vh - 56px);
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85);
+    cursor: zoom-in;
+  }
+  #img-zoom-target.is-actual-size {
+    max-width: none;
+    max-height: none;
+    width: auto;
+    cursor: zoom-out;
+    margin: auto;
+  }
+  .sl-legend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.9rem;
+  }
+  .sl-legend-item {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.84rem;
+    color: var(--muted);
+  }
+  .sl-legend-crop {
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: #0d1117;
+    cursor: zoom-in;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .sl-legend-crop:hover, .sl-legend-crop:focus-visible {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .sl-legend-crop img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .sl-legend-item code {
+    align-self: flex-start;
+    font-weight: 700;
+    color: var(--fg);
+  }
+  .sl-install-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .sl-install-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .sl-os-label {
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+  .code-block {
+    position: relative;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 2.6rem 0.65rem 0.9rem;
+  }
+  .code-block pre {
+    margin: 0;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .code-block code {
+    background: transparent;
+    padding: 0;
+    font-size: 0.82rem;
+    color: var(--fg);
+  }
+  .code-copy-btn {
+    position: absolute;
+    top: 50%;
+    right: 0.45rem;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .code-copy-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .code-copy-btn .icon-check {
+    display: none;
+    color: #3fb950;
+  }
+  .code-copy-btn.copied {
+    border-color: #3fb950;
+  }
+  .code-copy-btn.copied .icon-copy {
+    display: none;
+  }
+  .code-copy-btn.copied .icon-check {
+    display: block;
+  }
+</style>
