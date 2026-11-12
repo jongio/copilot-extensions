@@ -106,16 +106,24 @@ export function buildBoardApp({ state, boardUri }) {
     if (m.method === "notifications/resources/updated" || m.method === "ui/notifications/tool-result") {
       requestState();
     }
-    if (m.type === "state" && m.state) { state = m.state; render(); }
+    if (m.type === "state" && m.state) { applyState(m.state); }
     if (m.result && m.result.contents) {
       const c = m.result.contents.find((x) => (x.mimeType || "").includes("json"));
-      if (c && c.text) { try { state = JSON.parse(c.text); render(); } catch {} }
+      if (c && c.text) { try { applyState(JSON.parse(c.text)); } catch {} }
     }
   });
 
   const LEVELS = ["eli5", "curious", "engineer", "wizard"];
   const LEVEL_LABEL = { eli5: "ELI5", curious: "Curious", engineer: "Engineer", wizard: "Wizard" };
   const STATUSES = [["understood", "Understood"], ["confused", "Not yet"], ["revisit", "Revisit"]];
+
+  let lastHtml = "";
+  function applyState(nextState) {
+    if (!nextState || typeof nextState !== "object") return;
+    if (JSON.stringify(nextState) === JSON.stringify(state)) return;
+    state = nextState;
+    render();
+  }
 
   function setLevel(level) {
     state = { ...state, defaultLevel: level };  // optimistic
@@ -138,13 +146,14 @@ export function buildBoardApp({ state, boardUri }) {
     const understood = topics.filter((t) => t.status === "understood").length;
     const label = (state.codebase && state.codebase.label) || "This codebase";
     const slider = LEVELS.map((l) =>
-      '<button aria-pressed="' + (l === level) + '" onclick="' + jsCall("__tutor.setLevel", l) + '">' + LEVEL_LABEL[l] + "</button>"
+      '<button data-focus-key="' + esc("level:" + l) + '" aria-pressed="' + (l === level) + '" onclick="' + jsCall("__tutor.setLevel", l) + '">' + LEVEL_LABEL[l] + "</button>"
     ).join("");
     const list = topics.length
       ? topics.map((t) => {
+          const tid = String(t.id ?? "");
           const expl = (t.explanations && t.explanations[level]) || "";
           const status = STATUSES.map(([s, lbl]) =>
-            '<button aria-pressed="' + (t.status === s) + '" onclick="' + jsCall("__tutor.setStatus", String(t.id ?? ""), s) + '">' + lbl + "</button>"
+            '<button data-focus-key="' + esc("status:" + tid + ":" + s) + '" aria-pressed="' + (t.status === s) + '" onclick="' + jsCall("__tutor.setStatus", tid, s) + '">' + lbl + "</button>"
           ).join("");
           return (
             '<div class="topic"><div class="cat">' + esc(t.category || "concept") + "</div>" +
@@ -154,10 +163,23 @@ export function buildBoardApp({ state, boardUri }) {
           );
         }).join("")
       : '<p class="muted">No topics yet. Ask Copilot to analyze the repo (it calls set_codebase + add_topic).</p>';
-    document.getElementById("app").innerHTML =
+    const html =
       "<h1>" + esc(label) + "</h1>" +
       '<div class="muted ring">' + understood + " / " + topics.length + " understood</div>" +
       '<div class="slider">' + slider + "</div>" + list;
+    if (html === lastHtml) return;
+    const appEl = document.getElementById("app");
+    const activeKey = document.activeElement && appEl.contains(document.activeElement)
+      ? document.activeElement.getAttribute("data-focus-key")
+      : null;
+    lastHtml = html;
+    appEl.innerHTML = html;
+    if (activeKey) {
+      const nextFocus = Array.from(appEl.querySelectorAll("[data-focus-key]")).find(
+        (el) => el.getAttribute("data-focus-key") === activeKey
+      );
+      if (nextFocus && typeof nextFocus.focus === "function") nextFocus.focus();
+    }
   }
 
   // PRODUCTION: replace render()/callTool wiring above with a mount of the real

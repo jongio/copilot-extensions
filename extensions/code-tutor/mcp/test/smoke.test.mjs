@@ -30,7 +30,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---- minimal MCP stdio client ---------------------------------------------
 const child = spawn(process.execPath, [SERVER], {
-  env: { ...process.env, COPILOT_HOME: home, CODE_TUTOR_MCP_DOMAIN: "mcp" },
+  env: { ...process.env, COPILOT_HOME: home, CODE_TUTOR_MCP_DOMAIN: "mcp", CODE_TUTOR_WORKSPACE: EXT },
   stdio: ["pipe", "pipe", "pipe"],
 });
 child.stderr.setEncoding("utf8");

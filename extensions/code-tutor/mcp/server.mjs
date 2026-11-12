@@ -21,7 +21,8 @@
 // Test:  node mcp/test/smoke.test.mjs
 
 import { createHash } from "node:crypto";
-import { resolve } from "node:path";
+import { realpathSync } from "node:fs";
+import { isAbsolute, relative, resolve } from "node:path";
 import process from "node:process";
 import { canvasConfig } from "../canvas.mjs";
 import { createCanvasRuntime } from "../canvas-kit/server.mjs";
@@ -29,7 +30,17 @@ import { buildBoardApp } from "./board-app.mjs";
 
 const SERVER = { name: "code-tutor", version: "0.1.0-poc" };
 const PROTOCOL_VERSION = "2025-06-18"; // MCP revision this POC targets
-const WORKSPACE_ROOT = resolve(process.env.CODE_TUTOR_WORKSPACE || process.cwd());
+function canonicalPath(p) {
+  const abs = resolve(String(p || ""));
+  try { return realpathSync(abs); } catch { return abs; }
+}
+const WORKSPACE_ROOT = canonicalPath(process.env.CODE_TUTOR_WORKSPACE || process.cwd());
+function isWithinWorkspace(candidate) {
+  if (!candidate || typeof candidate !== "string") return false;
+  const target = canonicalPath(candidate);
+  const rel = relative(WORKSPACE_ROOT, target);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
 const DOMAIN =
   process.env.CODE_TUTOR_MCP_DOMAIN ||
   `mcp-${createHash("sha256").update(WORKSPACE_ROOT).digest("hex").slice(0, 12)}`;
@@ -109,6 +120,22 @@ function wrapAction(name, make) {
   if (def && typeof def.handler === "function") def.handler = make(def.handler);
 }
 
+wrapAction("set_codebase", (original) => async (api) => {
+  const requestedRoot = api?.input?.root ? canonicalPath(api.input.root) : WORKSPACE_ROOT;
+  if (!isWithinWorkspace(requestedRoot)) {
+    throw new Error(`root must stay within the authorized workspace (${WORKSPACE_ROOT})`);
+  }
+  return original({ ...api, input: { ...(api?.input ?? {}), root: requestedRoot } });
+});
+
+wrapAction("read_snippet", (original) => async (api) => {
+  const savedRoot = api?.state?.codebase?.root;
+  if (!savedRoot || !isWithinWorkspace(savedRoot)) {
+    throw new Error(`saved codebase root is outside the authorized workspace (${WORKSPACE_ROOT})`);
+  }
+  return original(api);
+});
+
 wrapAction("request_explanation", (original) => async (api) => {
   const result = await original(api);
   const { topicId, level, prompt } = result || {};
@@ -116,7 +143,7 @@ wrapAction("request_explanation", (original) => async (api) => {
     host.ai(prompt)
       .then((text) => {
         if (!text) throw new Error("empty tutor answer");
-        return runtime.invoke("set_explanation", { topicId, level, text }, back);
+        return runtime.invoke("set_explanation", { topicId, level, text, generic: false }, back);
       })
       .then(() => notifyStateUpdated())
       .catch((e) =>
