@@ -20,10 +20,12 @@ if (!existsSync(extDir)) {
 const isDir = (p) => existsSync(p) && statSync(p).isDirectory();
 const tests = [];
 for (const name of readdirSync(extDir).filter((n) => isDir(join(extDir, n)))) {
-	const testDir = join(extDir, name, "test");
-	if (!isDir(testDir)) continue;
-	for (const f of readdirSync(testDir).filter((f) => f.endsWith(".test.mjs"))) {
-		tests.push(join(testDir, f));
+	for (const sub of [["test"], ["mcp", "test"]]) {
+		const testDir = join(extDir, name, ...sub);
+		if (!isDir(testDir)) continue;
+		for (const f of readdirSync(testDir).filter((f) => f.endsWith(".test.mjs"))) {
+			tests.push(join(testDir, f));
+		}
 	}
 }
 
