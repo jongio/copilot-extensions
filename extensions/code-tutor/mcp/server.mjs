@@ -21,7 +21,7 @@
 // Test:  node mcp/test/smoke.test.mjs
 
 import { createHash } from "node:crypto";
-import { realpathSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import process from "node:process";
 import { canvasConfig } from "../canvas.mjs";
@@ -40,6 +40,41 @@ function isWithinWorkspace(candidate) {
   const target = canonicalPath(candidate);
   const rel = relative(WORKSPACE_ROOT, target);
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+function validateGitMetadataBoundary(root) {
+  const dotgit = resolve(root, ".git");
+  if (!existsSync(dotgit)) return;
+  if (!isWithinWorkspace(dotgit)) {
+    throw new Error(".git path resolves outside the authorized workspace");
+  }
+  const st = lstatSync(dotgit);
+  if (st.isSymbolicLink()) {
+    throw new Error(".git symlink is not permitted");
+  }
+  let gitdir = dotgit;
+  if (st.isFile()) {
+    const txt = readFileSync(dotgit, "utf8");
+    const m = txt.match(/^gitdir:\s*(.+)$/m);
+    if (m) {
+      const raw = m[1].trim();
+      gitdir = canonicalPath(isAbsolute(raw) ? raw : resolve(root, raw));
+      const isWorktreeMeta =
+        existsSync(resolve(gitdir, "commondir")) && existsSync(resolve(gitdir, "gitdir"));
+      if (!isWithinWorkspace(gitdir) && !isWorktreeMeta) {
+        throw new Error("gitdir points outside the authorized workspace");
+      }
+    }
+  }
+  const headPath = resolve(gitdir, "HEAD");
+  if (existsSync(headPath)) {
+    if (lstatSync(headPath).isSymbolicLink()) {
+      throw new Error("git HEAD symlink is not permitted");
+    }
+    const headTxt = readFileSync(headPath, "utf8").trim();
+    if (!/^(ref:\s+refs\/[^\r\n]+|[0-9a-f]{40,64})$/i.test(headTxt)) {
+      throw new Error("invalid git HEAD format");
+    }
+  }
 }
 const DOMAIN =
   process.env.CODE_TUTOR_MCP_DOMAIN ||
@@ -121,11 +156,37 @@ function wrapAction(name, make) {
 }
 
 wrapAction("set_codebase", (original) => async (api) => {
-  const requestedRoot = api?.input?.root ? canonicalPath(api.input.root) : WORKSPACE_ROOT;
+  const savedRoot = api?.state?.codebase?.root;
+  const rawRoot = api?.input?.root ?? savedRoot;
+  const requestedRoot = rawRoot ? canonicalPath(rawRoot) : WORKSPACE_ROOT;
   if (!isWithinWorkspace(requestedRoot)) {
     throw new Error(`root must stay within the authorized workspace (${WORKSPACE_ROOT})`);
   }
+  validateGitMetadataBoundary(requestedRoot);
   return original({ ...api, input: { ...(api?.input ?? {}), root: requestedRoot } });
+});
+
+wrapAction("check_staleness", (original) => async (api) => {
+  const savedRoot = api?.state?.codebase?.root;
+  if (savedRoot) {
+    if (!isWithinWorkspace(savedRoot)) {
+      throw new Error(`saved codebase root is outside the authorized workspace (${WORKSPACE_ROOT})`);
+    }
+    validateGitMetadataBoundary(canonicalPath(savedRoot));
+  }
+  return original(api);
+});
+
+wrapAction("add_topic", (original) => async (api) => {
+  const input = { ...(api?.input ?? {}) };
+  if (!Array.isArray(input.genericLevels)) input.genericLevels = [];
+  return original({ ...api, input });
+});
+
+wrapAction("set_explanation", (original) => async (api) => {
+  const input = { ...(api?.input ?? {}) };
+  if (typeof input.generic !== "boolean") input.generic = false;
+  return original({ ...api, input });
 });
 
 wrapAction("read_snippet", (original) => async (api) => {
