@@ -55,13 +55,28 @@ function validateGitMetadataBoundary(root) {
   if (st.isFile()) {
     const txt = readFileSync(dotgit, "utf8");
     const m = txt.match(/^gitdir:\s*(.+)$/m);
-    if (m) {
-      const raw = m[1].trim();
-      gitdir = canonicalPath(isAbsolute(raw) ? raw : resolve(root, raw));
-      const isWorktreeMeta =
-        existsSync(resolve(gitdir, "commondir")) && existsSync(resolve(gitdir, "gitdir"));
-      if (!isWithinWorkspace(gitdir) && !isWorktreeMeta) {
+    if (!m) {
+      throw new Error("invalid .git file format");
+    }
+    const raw = m[1].trim();
+    gitdir = canonicalPath(isAbsolute(raw) ? raw : resolve(root, raw));
+    if (!isWithinWorkspace(gitdir)) {
+      const commondirFile = resolve(gitdir, "commondir");
+      const gitdirFile = resolve(gitdir, "gitdir");
+      if (
+        !existsSync(commondirFile) ||
+        !existsSync(gitdirFile) ||
+        lstatSync(commondirFile).isSymbolicLink() ||
+        lstatSync(gitdirFile).isSymbolicLink()
+      ) {
         throw new Error("gitdir points outside the authorized workspace");
+      }
+      const backlinkRaw = readFileSync(gitdirFile, "utf8").trim();
+      const backlinkPath = canonicalPath(
+        isAbsolute(backlinkRaw) ? backlinkRaw : resolve(gitdir, backlinkRaw)
+      );
+      if (backlinkPath !== canonicalPath(dotgit)) {
+        throw new Error("worktree gitdir backlink does not match this workspace .git file");
       }
     }
   }
@@ -152,7 +167,10 @@ runtime.setHost(host);
 const back = { domainId: DOMAIN, source: "extension" };
 function wrapAction(name, make) {
   const def = canvasConfig.actions?.[name];
-  if (def && typeof def.handler === "function") def.handler = make(def.handler);
+  if (!def || typeof def.handler !== "function") {
+    throw new Error(`unknown canvas action to wrap: ${name}`);
+  }
+  def.handler = make(def.handler);
 }
 
 wrapAction("set_codebase", (original) => async (api) => {
@@ -166,14 +184,12 @@ wrapAction("set_codebase", (original) => async (api) => {
   return original({ ...api, input: { ...(api?.input ?? {}), root: requestedRoot } });
 });
 
-wrapAction("check_staleness", (original) => async (api) => {
-  const savedRoot = api?.state?.codebase?.root;
-  if (savedRoot) {
-    if (!isWithinWorkspace(savedRoot)) {
-      throw new Error(`saved codebase root is outside the authorized workspace (${WORKSPACE_ROOT})`);
-    }
-    validateGitMetadataBoundary(canonicalPath(savedRoot));
+wrapAction("analysis_status", (original) => async (api) => {
+  const savedRoot = api?.state?.codebase?.root || WORKSPACE_ROOT;
+  if (!isWithinWorkspace(savedRoot)) {
+    throw new Error(`saved codebase root is outside the authorized workspace (${WORKSPACE_ROOT})`);
   }
+  validateGitMetadataBoundary(canonicalPath(savedRoot));
   return original(api);
 });
 
