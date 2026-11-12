@@ -20,6 +20,8 @@
 // Run:   node mcp/server.mjs        (speaks MCP on stdin/stdout)
 // Test:  node mcp/test/smoke.test.mjs
 
+import { createHash } from "node:crypto";
+import { resolve } from "node:path";
 import process from "node:process";
 import { canvasConfig } from "../canvas.mjs";
 import { createCanvasRuntime } from "../canvas-kit/server.mjs";
@@ -27,9 +29,21 @@ import { buildBoardApp } from "./board-app.mjs";
 
 const SERVER = { name: "code-tutor", version: "0.1.0-poc" };
 const PROTOCOL_VERSION = "2025-06-18"; // MCP revision this POC targets
-const DOMAIN = process.env.CODE_TUTOR_MCP_DOMAIN || "mcp";
+const WORKSPACE_ROOT = resolve(process.env.CODE_TUTOR_WORKSPACE || process.cwd());
+const DOMAIN =
+  process.env.CODE_TUTOR_MCP_DOMAIN ||
+  `mcp-${createHash("sha256").update(WORKSPACE_ROOT).digest("hex").slice(0, 12)}`;
 const BOARD_URI = "ui://code-tutor/board";
+const BOARD_MIME_TYPE = "text/html;profile=mcp-app";
 const STATE_URI = "state://code-tutor/board";
+
+// Aim guidance for a free-form answer at the learner's chosen reading level.
+const ANSWER_LEVEL_GUIDE = {
+  eli5: "Explain like I'm 5: a plain everyday analogy, zero jargon.",
+  curious: "Plain English for a smart non-expert; define any term you use.",
+  engineer: "Technical depth for a working developer; be precise.",
+  wizard: "Deep and theoretical; assume an expert reader.",
+};
 
 const runtime = createCanvasRuntime(canvasConfig);
 let clientCaps = {}; // populated from initialize
@@ -40,6 +54,9 @@ const pending = new Map(); // outboundId -> { resolve, reject }
 function send(msg) { process.stdout.write(JSON.stringify(msg) + "\n"); }
 function reply(id, result) { send({ jsonrpc: "2.0", id, result }); }
 function replyError(id, code, message) { send({ jsonrpc: "2.0", id, error: { code, message } }); }
+function notifyStateUpdated() {
+  send({ jsonrpc: "2.0", method: "notifications/resources/updated", params: { uri: STATE_URI } });
+}
 function log(...a) { console.error("[code-tutor-mcp]", ...a); }
 
 // Server -> client request (sampling). Resolves when the client answers by id.
@@ -51,19 +68,18 @@ function request(method, params) {
   });
 }
 
-// ---- AI layer: MCP sampling (host model), with an offline fallback ---------
+// ---- AI layer: MCP sampling (host model) -----------------------------------
 // host.ai(question) -> Promise<string>. If the connected client advertised the
 // `sampling` capability at initialize, we ask ITS model to answer: the user's
 // Copilot model, their consent, their bill, zero model credentials here. If the
-// host did not grant sampling, we degrade to a stub so the tools still work
-// (verify sampling per host; a production server would embed the Copilot SDK or
-// a BYOK provider in this branch instead).
+// host did not grant sampling, we reject so callers record a retryable failure
+// rather than polluting the shared concept cache with a placeholder string.
 const host = {
   ai: async (question) => {
     const q = String(question);
     if (!clientCaps.sampling) {
-      log("no sampling capability from client; returning offline stub");
-      return "[[offline: this MCP host did not grant sampling]] A concept explanation would appear here.";
+      log("no sampling capability from client; rejecting sampling request");
+      throw new Error("MCP host did not grant sampling capability");
     }
     const res = await request("sampling/createMessage", {
       messages: [{ role: "user", content: { type: "text", text: q } }],
@@ -102,8 +118,12 @@ wrapAction("request_explanation", (original) => async (api) => {
         if (!text) throw new Error("empty tutor answer");
         return runtime.invoke("set_explanation", { topicId, level, text }, back);
       })
+      .then(() => notifyStateUpdated())
       .catch((e) =>
-        runtime.invoke("fail_explanation", { topicId, level, message: String(e?.message ?? e) }, back).catch(() => {})
+        runtime
+          .invoke("fail_explanation", { topicId, level, message: String(e?.message ?? e) }, back)
+          .then(() => notifyStateUpdated())
+          .catch(() => {})
       );
   }
   return result;
@@ -115,18 +135,30 @@ wrapAction("ask_question", (original) => async (api) => {
   if (id) {
     const state = api?.state ?? {};
     const text = String(api?.input?.text ?? "").trim();
+    const level = api?.input?.level ?? state.defaultLevel ?? null;
     const topic = api?.input?.topicId ? (state.topics ?? []).find((t) => t.id === api.input.topicId) : null;
     const bits = [];
-    if (state.codebase?.label) bits.push(`The learner is studying "${state.codebase.label}".`);
-    if (topic?.title) bits.push(`The question is about "${topic.title}".`);
+    if (state.codebase?.label) bits.push(`The learner is studying the codebase "${state.codebase.label}".`);
+    if (state.codebase?.summary) bits.push(`Overview: ${state.codebase.summary}.`);
+    if (topic?.title) bits.push(`The question is about the concept "${topic.title}"${topic.summary ? `: ${topic.summary}` : ""}.`);
+    const levelGuide = (level && ANSWER_LEVEL_GUIDE[level]) || "";
     const prompt =
-      `You are a precise coding tutor. ${bits.join(" ")} Question: "${text}". ` +
+      `You are a friendly, precise coding tutor answering a learner's question. ` +
+      `${bits.join(" ")} ${levelGuide} ` +
+      `Question: "${text}". ` +
       `Output ONLY the answer as 1 to 3 short paragraphs of plain prose. ` +
       `No preamble, no headings, no bullet lists, no code fences, and do not use em dashes.`;
     host.ai(prompt)
-      .then((answer) => runtime.invoke("answer_question", { id, answer: answer || "The tutor returned no answer." }, back))
+      .then((answer) => {
+        if (!answer) throw new Error("the tutor returned an empty answer");
+        return runtime.invoke("answer_question", { id, answer }, back);
+      })
+      .then(() => notifyStateUpdated())
       .catch((e) =>
-        runtime.invoke("answer_question", { id, answer: `The tutor could not answer right now: ${String(e?.message ?? e)}` }, back).catch(() => {})
+        runtime
+          .invoke("answer_question", { id, answer: `The tutor could not answer right now: ${String(e?.message ?? e)}` }, back)
+          .then(() => notifyStateUpdated())
+          .catch(() => {})
       );
   }
   return result;
@@ -140,6 +172,7 @@ function toolList() {
     name,
     description: def.description || "",
     inputSchema: def.inputSchema || { type: "object", properties: {} },
+    _meta: { ui: { resourceUri: BOARD_URI }, "ui/resourceUri": BOARD_URI },
   }));
 }
 
@@ -148,11 +181,12 @@ async function handleToolsCall(params) {
   const args = params?.arguments ?? {};
   const source = params?._meta?.source || "agent"; // ui = from the MCP App board
   const result = await runtime.invoke(name, args, { domainId: DOMAIN, source });
+  notifyStateUpdated();
   return {
     content: [{ type: "text", text: typeof result === "string" ? result : JSON.stringify(result) }],
     structuredContent: result,
     // Point the host at the board so a tool call can offer to open the panel.
-    _meta: { "ui/resourceUri": BOARD_URI },
+    _meta: { ui: { resourceUri: BOARD_URI }, "ui/resourceUri": BOARD_URI },
   };
 }
 
@@ -160,7 +194,7 @@ async function handleResourcesRead(params) {
   const uri = params?.uri;
   if (uri === BOARD_URI) {
     const state = await runtime.getState(DOMAIN);
-    return { contents: [{ uri, mimeType: "text/html", text: buildBoardApp({ state, boardUri: BOARD_URI }) }] };
+    return { contents: [{ uri, mimeType: BOARD_MIME_TYPE, text: buildBoardApp({ state, boardUri: BOARD_URI }) }] };
   }
   if (uri === STATE_URI) {
     const state = await runtime.getState(DOMAIN);
@@ -198,7 +232,7 @@ async function dispatch(msg) {
       case "resources/list":
         reply(id, {
           resources: [
-            { uri: BOARD_URI, name: "Code Tutor board", description: "The interactive tutor board (MCP App UI).", mimeType: "text/html" },
+            { uri: BOARD_URI, name: "Code Tutor board", description: "The interactive tutor board (MCP App UI).", mimeType: BOARD_MIME_TYPE },
             { uri: STATE_URI, name: "Code Tutor state", description: "Current board state as JSON.", mimeType: "application/json" },
           ],
         });

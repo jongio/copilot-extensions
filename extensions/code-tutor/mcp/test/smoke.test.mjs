@@ -107,6 +107,10 @@ try {
     }
     assert.ok(tools.length >= 20, `expected many tools, got ${tools.length}`);
     assert.ok(tools.every((t) => t.description && t.inputSchema), "each tool has description + inputSchema");
+    assert.ok(
+      tools.every((t) => t._meta?.ui?.resourceUri === "ui://code-tutor/board"),
+      "each tool advertises _meta.ui.resourceUri for MCP Apps discovery"
+    );
   });
 
   await test("tools/call set_codebase records the board title card", async () => {
@@ -168,10 +172,13 @@ try {
   await test("resources/read board returns the MCP App wired to tools", async () => {
     const r = await rpc("resources/read", { uri: "ui://code-tutor/board" });
     const c = r.contents[0];
-    assert.match(c.mimeType, /text\/html/);
+    assert.equal(c.mimeType, "text/html;profile=mcp-app");
     assert.match(c.text, /MCP App bridge/);
+    assert.match(c.text, /ui\/initialize/);
+    assert.match(c.text, /ui\/notifications\/initialized/);
     assert.match(c.text, /postMessage/);
     assert.match(c.text, /set_level/);
+    assert.match(c.text, /confused/);
     assert.match(c.text, /Demo Repo/); // current state is injected into the app
     assert.match(c.text, /Binary search/);
   });

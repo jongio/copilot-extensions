@@ -51,21 +51,61 @@ export function buildBoardApp({ state, boardUri }) {
 <div id="app" class="wrap"><p class="muted">Loading curriculum...</p></div>
 <script type="module">
   // ---- MCP App bridge -----------------------------------------------------
-  // Post an MCP-shaped tools/call up to the host. The host routes it to this
-  // server's tools/call handler (the same runtime.invoke the canvas uses), then
-  // pushes fresh state back. In a bare iframe (no host) we still update an
-  // optimistic local copy so the panel stays interactive for the demo.
+  // Complete the MCP Apps ui/initialize handshake before issuing resource reads
+  // or tool calls. After each tool completion (or resource update notification),
+  // re-read state://code-tutor/board so agent/background changes appear live.
   const BOARD_URI = ${uri};
+  const STATE_URI = "state://code-tutor/board";
   let state = ${json};
   let seq = 1;
-  function callTool(name, args) {
+  let hostReady = false;
+  const pendingCalls = [];
+  const inFlightTools = new Set();
+
+  function post(msg) {
+    try { window.parent.postMessage(msg, "*"); } catch {}
+  }
+
+  function requestState() {
+    post({ jsonrpc: "2.0", id: "app-state-" + (seq++), method: "resources/read", params: { uri: STATE_URI } });
+  }
+
+  function sendToolCall(name, args) {
     const id = "app-" + (seq++);
-    try { window.parent.postMessage({ jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: args, _meta: { source: "ui", resourceUri: BOARD_URI } } }, "*"); } catch {}
+    inFlightTools.add(id);
+    post({ jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: args, _meta: { source: "ui", resourceUri: BOARD_URI } } });
     return id;
   }
-  // Host pushes new state (or a resources/read result) back down to us.
+
+  function callTool(name, args) {
+    if (!hostReady) {
+      pendingCalls.push([name, args]);
+      return null;
+    }
+    return sendToolCall(name, args);
+  }
+
+  // Host pushes new state, initialization acknowledgement, or tool/resource results.
   window.addEventListener("message", (e) => {
+    if (e.source && e.source !== window.parent) return;
     const m = e.data || {};
+    if (m.id === "app-init" && m.result && !hostReady) {
+      hostReady = true;
+      post({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} });
+      while (pendingCalls.length) {
+        const [n, a] = pendingCalls.shift();
+        sendToolCall(n, a);
+      }
+      requestState();
+      return;
+    }
+    if (m.id && inFlightTools.has(m.id)) {
+      inFlightTools.delete(m.id);
+      requestState();
+    }
+    if (m.method === "notifications/resources/updated" || m.method === "ui/notifications/tool-result") {
+      requestState();
+    }
     if (m.type === "state" && m.state) { state = m.state; render(); }
     if (m.result && m.result.contents) {
       const c = m.result.contents.find((x) => (x.mimeType || "").includes("json"));
@@ -75,7 +115,7 @@ export function buildBoardApp({ state, boardUri }) {
 
   const LEVELS = ["eli5", "curious", "engineer", "wizard"];
   const LEVEL_LABEL = { eli5: "ELI5", curious: "Curious", engineer: "Engineer", wizard: "Wizard" };
-  const STATUSES = [["understood", "Understood"], ["not-understood", "Not yet"], ["revisit", "Revisit"]];
+  const STATUSES = [["understood", "Understood"], ["confused", "Not yet"], ["revisit", "Revisit"]];
 
   function setLevel(level) {
     state = { ...state, defaultLevel: level };  // optimistic
@@ -89,7 +129,8 @@ export function buildBoardApp({ state, boardUri }) {
   }
   window.__tutor = { setLevel, setStatus };  // onclick hooks
 
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+  function jsCall(fn, ...args) { return esc(fn + "(" + args.map((a) => JSON.stringify(a)).join(",") + ")"); }
 
   function render() {
     const topics = state.topics || [];
@@ -97,13 +138,13 @@ export function buildBoardApp({ state, boardUri }) {
     const understood = topics.filter((t) => t.status === "understood").length;
     const label = (state.codebase && state.codebase.label) || "This codebase";
     const slider = LEVELS.map((l) =>
-      '<button aria-pressed="' + (l === level) + '" onclick="__tutor.setLevel(\\'' + l + '\\')">' + LEVEL_LABEL[l] + "</button>"
+      '<button aria-pressed="' + (l === level) + '" onclick="' + jsCall("__tutor.setLevel", l) + '">' + LEVEL_LABEL[l] + "</button>"
     ).join("");
     const list = topics.length
       ? topics.map((t) => {
           const expl = (t.explanations && t.explanations[level]) || "";
           const status = STATUSES.map(([s, lbl]) =>
-            '<button aria-pressed="' + (t.status === s) + '" onclick="__tutor.setStatus(\\'' + esc(t.id) + '\\',\\'' + s + '\\')">' + lbl + "</button>"
+            '<button aria-pressed="' + (t.status === s) + '" onclick="' + jsCall("__tutor.setStatus", String(t.id ?? ""), s) + '">' + lbl + "</button>"
           ).join("");
           return (
             '<div class="topic"><div class="cat">' + esc(t.category || "concept") + "</div>" +
@@ -123,8 +164,19 @@ export function buildBoardApp({ state, boardUri }) {
   // web/app.mjs, passing it { state, invoke: (a, i) => callTool(a, i) }. The board
   // components (TopicCard, ReviewTab, ...) are unchanged; only the transport swaps.
   render();
-  // Ask the host for the freshest state on open (no-op in a bare iframe).
-  try { window.parent.postMessage({ jsonrpc: "2.0", id: "app-open", method: "resources/read", params: { uri: "state://code-tutor/board" } }, "*"); } catch {}
+  // Initiate the MCP Apps handshake; once the host replies, we send
+  // ui/notifications/initialized and read state://code-tutor/board.
+  post({
+    jsonrpc: "2.0",
+    id: "app-init",
+    method: "ui/initialize",
+    params: {
+      protocolVersion: "2025-06-18",
+      appInfo: { name: "code-tutor-board", version: "0.1.0-poc" },
+      appCapabilities: {},
+    },
+  });
+  setInterval(() => { if (hostReady) requestState(); }, 2500);
 </script>
 </body>
 </html>`;
